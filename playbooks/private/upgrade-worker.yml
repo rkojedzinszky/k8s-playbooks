@@ -1,0 +1,46 @@
+# Reboot a worker
+---
+- name: "Select master to perform operations"
+  set_fact:
+    selected_master: '{{ groups["master"] | random }}'
+
+- name: "check status"
+  command:
+  args:
+    argv:
+    - kubectl
+    - get
+    - node
+    - "{{ inventory_hostname }}"
+    - -o
+    - jsonpath={range .status.conditions[:]}{.reason}{"\n"}{end}
+  delegate_to: "{{ selected_master }}"
+  register: node_status
+
+- fail:
+    msg: "{{ inventory_hostname }} is NotReady"
+  when: "'NodeStatusUnknown' in node_status.stdout_lines"
+
+- debug:
+    msg: 'Selected master is {{ selected_master }}'
+
+- name: "Drain"
+  command: "kubectl drain --ignore-daemonsets --delete-local-data --grace-period=10 {{ inventory_hostname }}"
+  delegate_to: "{{ selected_master }}"
+
+- name: "Uprgade node"
+  command: "kubeadm upgrade node config --kubelet-version v{{ kubernetes_version }}"
+
+- name: Unhold kubectl/kubelet
+  command: apt-mark unhold kubectl kubelet
+
+- name: Upgrade kubectl/kubelet
+  apt:
+    name: kubectl={{ kubernetes_version }}-00,kubelet={{ kubernetes_version }}-00
+
+- name: Hold kubectl/kubelet
+  command: apt-mark hold kubectl kubelet
+
+- name: "Uncordon"
+  command: "kubectl uncordon {{ inventory_hostname }}"
+  delegate_to: "{{ selected_master }}"
