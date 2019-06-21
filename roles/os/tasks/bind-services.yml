@@ -1,0 +1,6 @@
+---
+- name: bind ssh to specified ip
+  lineinfile:
+    dest: /etc/ssh/sshd_config
+    regexp: ListenAddress
+    line: ListenAddress {{ ip }}

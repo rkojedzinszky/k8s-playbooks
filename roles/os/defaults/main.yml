@@ -1,0 +1,15 @@
+---
+cpufreq:
+  governor: ondemand
+  tune_sampling_rate: false
+
+#rsyslogd_remote: 192.168.1.1
+
+apt:
+  ext:
+    keyserver: ""
+    key_ids: []
+    sources: []
+
+daily_fstrim_enable: false
+weekly_fstrim_enable: true

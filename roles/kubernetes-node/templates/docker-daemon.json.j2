@@ -1,0 +1,7 @@
+{
+	"insecure-registries": {{ docker_insecure_registries | to_json }},
+	"log-opts": {
+		"max-size": "{{ docker_max_log_size }}",
+		"max-file": "{{ docker_max_log_files }}"
+	}
+}

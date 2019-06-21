@@ -1,0 +1,30 @@
+---
+- name: deploy daily fstrim script
+  template:
+    src: cron-fstrim.j2
+    dest: /etc/cron.daily/fstrim
+    mode: 0555
+    owner: root
+    group: root
+  when: daily_fstrim_enable
+
+- name: remove daily fstrim script
+  file:
+    path: /etc/cron.daily/fstrim
+    state: absent
+  when: not daily_fstrim_enable
+
+- name: deploy weekly fstrim script
+  template:
+    src: cron-fstrim.j2
+    dest: /etc/cron.weekly/fstrim
+    mode: 0555
+    owner: root
+    group: root
+  when: weekly_fstrim_enable
+
+- name: remove weekly fstrim script
+  file:
+    path: /etc/cron.weekly/fstrim
+    state: absent
+  when: not weekly_fstrim_enable

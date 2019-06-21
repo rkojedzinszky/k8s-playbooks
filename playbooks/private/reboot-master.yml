@@ -1,0 +1,22 @@
+---
+- name: "{{ inventory_hostname }} - reboot"
+  reboot: {}
+
+- name: "{{ inventory_hostname }} - wait until apiserver becomes healthy"
+  command:
+  args:
+    warn: False
+    argv:
+    - curl
+    - --max-time
+    - "1"
+    - -s
+    - --cacert
+    - /etc/kubernetes/pki/ca.crt
+    - "https://{{ ip }}:6443/healthz"
+  register: result
+  until: "'ok' == result.stdout"
+  retries: 48
+  delay: 5
+  tags:
+  - health-check

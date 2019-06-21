@@ -1,0 +1,35 @@
+---
+- name: update apt cache
+  apt: update_cache=Yes
+
+- name: reload systemd
+  shell: systemctl daemon-reexec
+
+- name: stop watchdogd
+  service:
+    name: watchdog
+    state: stopped
+  listen: restart watchdogd
+
+- name: start watchdogd
+  service:
+    name: watchdog
+    state: started
+  listen: restart watchdogd
+
+- name: restart munin-node
+  service: name=munin-node state=restarted
+
+- name: reload systemd
+  shell: "systemctl daemon-reload"
+  listen: restart cpufrequtils
+
+- name: restart cpufrequtils
+  service:
+    name: cpufrequtils
+    state: restarted
+
+- name: restart rsyslogd
+  service:
+    name: rsyslog
+    state: restarted

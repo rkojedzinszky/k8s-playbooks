@@ -1,0 +1,14 @@
+- name: setup rsyslogd remote logging
+  copy:
+    content: |
+      *.* @{{ rsyslogd_remote }}
+    dest: /etc/rsyslog.d/zz-remotelog.conf
+  notify: restart rsyslogd
+  when: rsyslogd_remote is defined
+
+- name: clear rsyslogd remote logging
+  file:
+    path: /etc/rsyslog.d/zz-remotelog.conf
+    state: absent
+  notify: restart rsyslogd
+  when: rsyslogd_remote is not defined

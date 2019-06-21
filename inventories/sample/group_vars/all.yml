@@ -1,0 +1,22 @@
+---
+admin_user: admin
+admin_shell: /bin/bash
+admin_user_ssh_key: "ssh-rsa ..."
+
+rsyslogd_remote: 10.2.2.0
+
+docker_insecure_registries:
+- registry.lan
+
+# maximum number of log files
+docker_max_log_size: 500k
+docker_max_log_files: 2
+
+# external apt
+apt:
+  ext:
+    keyserver: pgp.mit.edu
+    key_ids:
+    - "0x2ADADF37C3C302A7BADABCC10D946CE6DD9F32EB"
+    sources:
+    - "deb http://apt.srv.kojedz.in/ stretch main"

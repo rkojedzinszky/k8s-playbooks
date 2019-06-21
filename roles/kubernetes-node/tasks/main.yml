@@ -1,0 +1,19 @@
+---
+- apt: name=curl,tcpdump,nfs-common
+
+- import_tasks: docker.yml
+  tags:
+  - docker
+
+- name: disable any swap
+  lineinfile: dest=/etc/fstab regexp=swap state=absent
+
+- apt_key: url=https://packages.cloud.google.com/apt/doc/apt-key.gpg
+- copy: src=kubernetes.list dest=/etc/apt/sources.list.d/
+  notify: update apt cache
+- meta: flush_handlers
+- apt:
+    name: "kubelet={{ kubernetes_version }}-00,kubeadm={{ kubernetes_version }}-00,kubectl={{ kubernetes_version }}-00"
+- shell: apt-mark hold kubelet kubeadm kubectl
+- systemd: daemon_reload=yes name=kubelet state=restarted
+- copy: content="net.bridge.bridge-nf-call-iptables=1" dest=/etc/sysctl.d/kubernetes-node.conf

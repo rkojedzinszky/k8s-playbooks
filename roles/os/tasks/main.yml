@@ -1,0 +1,54 @@
+---
+- name: check if ip address is set for host
+  fail:
+    msg: IP address not set for host
+  when: ip is not defined
+
+- template: src=sources.list.j2 dest=/etc/apt/sources.list
+  notify: update apt cache
+  tags:
+  - sources-list
+
+- import_tasks: apt-ext-lists.yml
+  tags:
+  - sources-list
+
+- meta: flush_handlers
+
+- name: install some essential packages
+  apt: name={{ essential_packages | join(',') }}
+
+- meta: flush_handlers
+
+- name: disable shell history
+  file:
+    path: /root/.bash_history
+    state: link
+    src: /dev/null
+    force: yes
+
+- import_tasks: modules.yml
+
+- import_tasks: resolv.yml
+
+- import_tasks: watchdog.yml
+  tags:
+  - watchdog
+
+- import_tasks: munin.yml
+  tags:
+  - munin
+
+- import_tasks: bind-services.yml
+
+- import_tasks: cpufreq.yml
+  tags:
+  - cpufreq
+
+- import_tasks: rsyslogd.yml
+  tags:
+  - syslog
+
+- import_tasks: fstrim.yml
+  tags:
+  - fstrim

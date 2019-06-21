@@ -1,0 +1,30 @@
+---
+- name: setup cpufrequtils
+  template:
+    src: defaults-cpufrequtils.j2
+    dest: /etc/default/cpufrequtils
+  notify: restart cpufrequtils
+
+- name: setup cpufrequtils sampling rate dropin
+  when: cpufreq.tune_sampling_rate | default(False) | bool
+  block:
+  - name: ensure cpufrequtils systemd service dropin directory exists
+    file:
+      path: /etc/systemd/system/cpufrequtils.service.d
+      state: directory
+
+  - name: setup cpufrequtils governor sampling rate
+    copy:
+      content: |-
+        [Service]
+        ExecStartPost=-/bin/sh -c "cd /sys/devices/system/cpu/cpufreq && awk '{print int($1 * 750 / 1000)}' policy0/cpuinfo_transition_latency > $(cat policy0/scaling_governor)/sampling_rate"
+      dest: /etc/systemd/system/cpufrequtils.service.d/sampling-rate.conf
+    notify: restart cpufrequtils
+
+- name: clear cpufrequtils sampling rate dropin
+  when: not (cpufreq.tune_sampling_rate | default(False) | bool)
+  block:
+  - name: ensure cpufrequtils systemd service dropin directory is absent
+    file:
+      path: /etc/systemd/system/cpufrequtils.service.d
+      state: absent

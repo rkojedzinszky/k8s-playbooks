@@ -1,0 +1,17 @@
+---
+- hosts: all
+  gather_facts: no
+  become: True
+
+  tasks:
+  - name: discover modules
+    shell: "munin-node-configure --suggest --shell --remove-also --families=manual,auto 2>/dev/null | sh"
+
+  - name: cleanup unwanted modules
+    shell: "cd /etc/munin/plugins && rm -f apt* if*kube* if*veth* port_* swap"
+
+  - name: restart munin-node
+    service:
+      name: munin-node
+      state: restarted
+

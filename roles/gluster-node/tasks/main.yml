@@ -1,0 +1,4 @@
+---
+- name: "install gluster server & client utilities"
+  apt:
+    name: glusterfs-server,glusterfs-client,lvm2

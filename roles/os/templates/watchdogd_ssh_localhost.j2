@@ -1,0 +1,12 @@
+#!/bin/sh
+
+random_int()
+{
+	local max="$1"
+
+	awk "BEGIN {srand(); print int($max * rand())}"
+}
+
+if [ $(random_int 100) -lt 5 ]; then
+	exec ssh -o BatchMode=yes "{{ inventory_hostname }}" -i "{{ watchdog_ssh_keyfile }}" 2>/dev/null
+fi

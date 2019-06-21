@@ -1,0 +1,15 @@
+---
+- name: check if docker installed
+  shell: dpkg-query -W docker
+  ignore_errors: True
+  register: is_docker_installed
+
+- name: install docker
+  shell: curl -sL https://get.docker.com/ | bash -
+  when: is_docker_installed is failed
+
+- name: configure docker
+  template:
+    src: docker-daemon.json.j2
+    dest: /etc/docker/daemon.json
+  notify: restart docker

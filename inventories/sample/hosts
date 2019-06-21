@@ -1,0 +1,21 @@
+[cluster:children]
+master
+worker
+
+[munin:children]
+cluster
+
+[munin:vars]
+munin_host=10.2.2.0
+
+# All hosts need an ip= argument. Some daemons will bind only to this address.
+# Also, the watchdog will use that address
+[master]
+k8s-master ip=192.168.1.1
+
+[worker]
+k8s-node-1 ip=192.168.1.2
+k8s-node-2 ip=192.168.1.3
+
+[gluster:children]
+worker

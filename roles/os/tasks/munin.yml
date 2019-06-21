@@ -1,0 +1,20 @@
+---
+- apt: name=munin-node,bc
+- lineinfile:
+    dest: /etc/munin/munin-node.conf
+    regexp: host_name
+    line: "host_name {{ inventory_hostname }}"
+  notify: restart munin-node
+
+- lineinfile:
+    dest: /etc/munin/munin-node.conf
+    regexp: ^cidr_allow
+    line: "cidr_allow {{ munin_host }}"
+  notify: restart munin-node
+
+- name: bind munin to specified ip
+  lineinfile:
+    dest: /etc/munin/munin-node.conf
+    regexp: ^host
+    line: host {{ ip }}
+  notify: restart munin-node

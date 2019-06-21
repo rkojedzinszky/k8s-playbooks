@@ -1,0 +1,11 @@
+---
+- hosts: cluster
+  become: true
+  roles:
+  - os
+  - kubernetes-node
+
+- hosts: gluster
+  become: true
+  roles:
+  - gluster-node

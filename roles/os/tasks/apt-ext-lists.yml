@@ -1,0 +1,12 @@
+---
+- name: import gpg keys
+  apt_key:
+    keyserver: "{{ apt.ext.keyserver }}"
+    id: "{{ item }}"
+  loop: "{{ apt.ext.key_ids }}"
+
+- name: generate additional sources.list
+  template:
+    src: ext.sources.list.j2
+    dest: /etc/apt/sources.list.d/ext.sources.list
+  notify: update apt cache

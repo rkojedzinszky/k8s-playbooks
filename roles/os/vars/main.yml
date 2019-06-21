@@ -1,0 +1,25 @@
+---
+sources:
+- deb http://cdn-fastly.deb.debian.org/debian/ stretch main
+- deb http://cdn-fastly.deb.debian.org/debian/ stretch-updates main
+- deb http://cdn-fastly.deb.debian.org/debian-security/ stretch/updates main
+
+essential_packages:
+- less
+- etckeeper
+- atop
+- net-tools
+- irqbalance
+
+blacklisted_modules:
+- brcmfmac
+- 8189fs
+
+os_fw_modules:
+- br-netfilter
+
+watchdog_ssh_keyfile: /root/.ssh/watchdog_key
+watchdog_ssh_comment: 'watchdog ssh key'
+watchdog_ssh_known_hosts: /root/.ssh/known_hosts
+watchdog_ssh_testscript: /usr/local/sbin/watchdogd_ssh_localhost
+watchdog_interval: 10

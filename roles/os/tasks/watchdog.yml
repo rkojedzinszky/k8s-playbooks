@@ -1,0 +1,75 @@
+---
+- name: disable systemd watchdog
+  lineinfile:
+    dest: /etc/systemd/system.conf
+    regexp: RuntimeWatchdogSec
+    line: '#RuntimeWatchdogSec=0'
+  notify: reload systemd
+
+- meta: flush_handlers
+
+- name: install watchdog package
+  apt: name=watchdog
+
+- name: enable watchdog to use hardware
+  lineinfile:
+    dest: /etc/watchdog.conf
+    regexp: watchdog-device
+    line: watchdog-device = /dev/watchdog
+  notify: restart watchdogd
+
+- name: set watchdog interval
+  lineinfile:
+    dest: /etc/watchdog.conf
+    regexp: interval
+    line: 'interval = {{ watchdog_interval }}'
+  notify: restart watchdogd
+
+- name: generate ssh key for watchdog
+  command: 'ssh-keygen -t ecdsa -b 256 -C "{{ watchdog_ssh_comment }}" -N "" -f {{ watchdog_ssh_keyfile }}'
+  args:
+    creates: '{{ watchdog_ssh_keyfile }}'
+
+- name: read watchdog ssh public key
+  shell: 'cat {{ watchdog_ssh_keyfile }}.pub'
+  register: watchdog_ssh_pub
+
+- name: register public key
+  set_fact:
+    watchdog_ssh_pub: '{{ watchdog_ssh_pub.stdout_lines[0] }}'
+
+- name: ensure watchdog ssh key is in authorized_keys
+  lineinfile:
+    dest: /root/.ssh/authorized_keys
+    regexp: '{{ watchdog_ssh_comment }}'
+    line: 'command="/bin/true" {{ watchdog_ssh_pub }}'
+
+- name: read host ssh keys
+  shell: 'ssh-keyscan {{ inventory_hostname }} | grep -v ^#'
+  register: ssh_keyscan
+
+- name: 'add host public keys to known_hosts'
+  lineinfile:
+    create: yes
+    mode: 0644
+    owner: root
+    group: root
+    dest: '{{ watchdog_ssh_known_hosts }}'
+    regexp: '{{ item | regex_escape() }}'
+    line: '{{ item }}'
+  loop: '{{ ssh_keyscan.stdout_lines }}'
+
+- name: deploy watchdog ssh script
+  template:
+    src: watchdogd_ssh_localhost.j2
+    dest: '{{ watchdog_ssh_testscript }}'
+    mode: 0755
+    owner: root
+    group: root
+
+- name: enable watchdog script in watchdog.conf
+  lineinfile:
+    dest: /etc/watchdog.conf
+    regexp: test-binary
+    line: 'test-binary = {{ watchdog_ssh_testscript }}'
+  notify: restart watchdogd

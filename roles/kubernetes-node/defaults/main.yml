@@ -1,0 +1,8 @@
+# docker insecure registries
+docker_insecure_registries: []
+
+# maximum docker log size
+docker_max_log_size: 1m
+
+# maximum number of log files
+docker_max_log_files: 3
