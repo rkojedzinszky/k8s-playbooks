@@ -1,0 +1,25 @@
+---
+- hosts: cluster
+  gather_facts: no
+  become: yes
+  any_errors_fatal: true
+  tasks:
+  - name: Upgrade os
+    apt:
+      update_cache: yes
+      upgrade: safe
+
+  - name: Cleanup apt
+    command: apt-get clean
+    args:
+      warn: False
+
+  - name: Remove dangling initrd.img files
+    shell: |-
+      cd /boot && \
+      set -- initrd.img-* \
+      test -f "$1" &&
+      for i in initrd.img-* ; do
+        v=${i#initrd.img-}
+        test -f vmlinuz-${v} || rm $i
+      done
