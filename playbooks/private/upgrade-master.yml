@@ -18,10 +18,6 @@
   - name: Hold kubectl/kubelet
     command: apt-mark hold kubectl kubelet
 
-  - name: Delete ds/kube-proxy
-    command: kubectl -n kube-system delete ds/kube-proxy
-    ignore_errors: yes
-
 - name: Upgrade other masters
   when: inventory_hostname != groups['master'][0]
   block:

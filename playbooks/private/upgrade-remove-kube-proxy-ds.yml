@@ -1,0 +1,10 @@
+---
+- name: Delete ds/kube-proxy
+  run_once: yes
+  delegate_to: "{{ groups['master'] | random }}"
+  command: kubectl -n kube-system delete ds/kube-proxy
+  ignore_errors: yes
+
+- name: cleanup kube-proxy
+  command: docker run --privileged -v /lib/modules:/lib/modules --net=host k8s.gcr.io/kube-proxy:v{{ kubernetes_version }} kube-proxy --cleanup
+  ignore_errors: yes
