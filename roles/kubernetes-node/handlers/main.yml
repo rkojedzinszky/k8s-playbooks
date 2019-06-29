@@ -3,3 +3,6 @@
   service:
     name: docker
     state: restarted
+
+- name: apply kubernetes sysctls
+  command: sysctl -p /etc/sysctl.d/kubernetes-node.conf

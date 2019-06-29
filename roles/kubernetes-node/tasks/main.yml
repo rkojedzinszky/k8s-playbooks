@@ -16,4 +16,11 @@
     name: "kubelet={{ kubernetes_version }}-00,kubeadm={{ kubernetes_version }}-00,kubectl={{ kubernetes_version }}-00"
 - shell: apt-mark hold kubelet kubeadm kubectl
 - systemd: daemon_reload=yes name=kubelet state=restarted
-- copy: content="net.bridge.bridge-nf-call-iptables=1" dest=/etc/sysctl.d/kubernetes-node.conf
+
+- name: deploy kubernetes sysctls
+  template:
+    src: kubernetes-node.conf.j2
+    dest: /etc/sysctl.d/kubernetes-node.conf
+  notify: apply kubernetes sysctls
+  tags:
+  - sysctl
