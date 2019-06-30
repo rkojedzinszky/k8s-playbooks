@@ -1,0 +1,8 @@
+---
+- fail:
+    msg: docker_insecure_registries is unsupported, use container_runtime_insecure_registries instead
+  when: docker_insecure_registries is defined
+
+- fail:
+    msg: docker_max_log_size is unsupported, use container_runtime_max_log_size instead
+  when: docker_max_log_size is defined

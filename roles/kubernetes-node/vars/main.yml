@@ -1,3 +1,6 @@
 ---
 kubernetes_version_prev: 1.14.3
 kubernetes_version: 1.15.0
+
+# CRI-O
+cri_o_version: 1.13
