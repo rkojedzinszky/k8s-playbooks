@@ -14,4 +14,4 @@ container_runtime_insecure_registries: []
 container_runtime_max_log_size: 1000000
 
 # maximum number of log files
-docker_max_log_files: 3
+docker_max_log_files: 1

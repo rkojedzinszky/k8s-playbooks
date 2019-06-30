@@ -5,12 +5,12 @@ admin_user_ssh_key: "ssh-rsa ..."
 
 rsyslogd_remote: 10.2.2.0
 
-docker_insecure_registries:
+container_runtime_insecure_registries:
 - registry.lan
 
 # maximum number of log files
-docker_max_log_size: 500k
-docker_max_log_files: 2
+container_runtime_max_log_size: 500000
+docker_max_log_files: 1
 
 # external apt
 apt:
