@@ -1,0 +1,62 @@
+---
+- name: Install apt-transport-https
+  apt:
+    name: apt-transport-https
+
+- name: import Project Atomic gpg key
+  apt_key:
+    id: 018BA5AD9DF57A4448F0E6CF8BECF1637AD8C79D
+    keyserver: pool.sks-keyservers.net
+
+- name: Deploy cri-o sources.list
+  copy:
+    content: "deb http://ppa.launchpad.net/projectatomic/ppa/ubuntu bionic main"
+    dest: /etc/apt/sources.list.d/cri-o.list
+  notify: update apt cache
+
+- meta: flush_handlers
+
+- name: install cri-o
+  apt:
+    name: cri-o-{{ cri_o_version }}
+  notify: reload systemd
+
+- name: Set default cgroup_manager for cri-o
+  ini_file:
+    path: /etc/crio/crio.conf
+    section: crio.runtime
+    option: cgroup_manager
+    value: "{{ container_runtime_cgroup_driver | to_json }}"
+  notify: restart crio
+
+- name: Set default registry for cri-o
+  ini_file:
+    path: /etc/crio/crio.conf
+    section: crio.image
+    option: registries
+    value: "{{ container_runtime_registries | to_json }}"
+  notify: restart crio
+
+- name: Set insecure registries for cri-o
+  ini_file:
+    path: /etc/crio/crio.conf
+    section: crio.image
+    option: insecure_registries
+    value: "{{ container_runtime_insecure_registries | to_json }}"
+  notify: restart crio
+
+- name: Set container log size for cri-o
+  ini_file:
+    path: /etc/crio/crio.conf
+    section: crio.runtime
+    option: log_size_max
+    value: "{{ container_runtime_max_log_size }}"
+  notify: restart crio
+
+- meta: flush_handlers
+
+- name: Ensure crio is started
+  service:
+    name: crio
+    state: started
+    enabled: yes
