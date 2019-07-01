@@ -1,0 +1,6 @@
+{% if 'search' in dnsConfig %}
+search {{ dnsConfig.search | join(' ') }}
+{% endif %}
+{% for ns in dnsConfig.nameservers %}
+nameserver {{ ns }}
+{% endfor %}

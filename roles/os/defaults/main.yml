@@ -13,3 +13,11 @@ apt:
 
 daily_fstrim_enable: false
 weekly_fstrim_enable: true
+
+# resolver configuration
+#dnsConfig:
+#  search:
+#  - lan
+#  - doma.in
+#  nameservers:
+#  - 8.8.8.8

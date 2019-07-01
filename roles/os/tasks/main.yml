@@ -4,6 +4,9 @@
     msg: IP address not set for host
   when: ip is not defined
 
+- name: Setup hostname and resolv.conf
+  import_tasks: resolv.yml
+
 - template: src=sources.list.j2 dest=/etc/apt/sources.list
   notify: update apt cache
   tags:
@@ -28,8 +31,6 @@
     force: yes
 
 - import_tasks: modules.yml
-
-- import_tasks: resolv.yml
 
 - import_tasks: watchdog.yml
   tags:

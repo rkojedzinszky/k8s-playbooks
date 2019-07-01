@@ -1,5 +1,17 @@
 ---
+- name: generate /etc/hostname
+  copy:
+    content: |
+      {{ inventory_hostname }}
+    dest: /etc/hostname
+
 - name: generate hosts file
   template:
     src: hosts.j2
     dest: /etc/hosts
+
+- name: generate resolv.conf
+  template:
+    src: resolv.conf.j2
+    dest: /etc/resolv.conf
+  when: dnsConfig is defined
