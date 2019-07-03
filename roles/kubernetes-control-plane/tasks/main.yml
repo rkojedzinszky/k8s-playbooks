@@ -1,0 +1,3 @@
+---
+- name: Prepull control plane images
+  shell: "kubeadm config images list | xargs -n 1 crictl pull"

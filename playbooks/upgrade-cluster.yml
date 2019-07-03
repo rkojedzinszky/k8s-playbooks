@@ -11,6 +11,13 @@
   gather_facts: no
   become: yes
   any_errors_fatal: true
+  roles:
+  - kubernetes-control-plane
+
+- hosts: master
+  gather_facts: no
+  become: yes
+  any_errors_fatal: true
   tasks:
   - name: Upgrade control plane
     import_tasks: private/upgrade-master.yml

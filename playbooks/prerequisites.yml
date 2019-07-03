@@ -5,6 +5,11 @@
   - os
   - kubernetes-node
 
+- hosts: master
+  become: true
+  roles:
+  - kubernetes-control-plane
+
 - hosts: gluster
   become: true
   roles:

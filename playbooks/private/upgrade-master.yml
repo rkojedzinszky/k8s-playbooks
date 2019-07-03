@@ -1,7 +1,4 @@
 ---
-- name: Prepull images
-  command: kubeadm config images pull
-
 - name: Upgrade first master
   when: inventory_hostname == groups['master'][0]
   block:
