@@ -1,0 +1,3 @@
+# Worker specific packages
+kubernetes_worker_packages:
+- open-iscsi

@@ -10,6 +10,11 @@
   roles:
   - kubernetes-control-plane
 
+- hosts: worker
+  become: true
+  roles:
+  - kubernetes-worker-node
+
 - hosts: gluster
   become: true
   roles:

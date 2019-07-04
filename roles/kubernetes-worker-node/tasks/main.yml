@@ -1,0 +1,4 @@
+---
+- name: Install worker specific packages
+  apt:
+    name: "{{ kubernetes_worker_packages }}"
