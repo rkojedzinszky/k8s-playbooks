@@ -1,3 +1,4 @@
 # Worker specific packages
 kubernetes_worker_packages:
+- nfs-common
 - open-iscsi
