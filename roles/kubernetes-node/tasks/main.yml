@@ -9,12 +9,6 @@
 - name: Install container runtime
   include_tasks: "{{ container_runtime }}.yml"
 
-- name: Generate kubelet config for cgroup driver
-  copy:
-    content: |
-      KUBELET_EXTRA_ARGS=--cgroup-driver={{ container_runtime_cgroup_driver }}
-    dest: /etc/default/kubelet
-
 - name: disable any swap
   lineinfile: dest=/etc/fstab regexp=swap state=absent
 
