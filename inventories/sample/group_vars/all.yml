@@ -19,4 +19,4 @@ apt:
     key_ids:
     - "0x2ADADF37C3C302A7BADABCC10D946CE6DD9F32EB"
     sources:
-    - "deb http://apt.srv.kojedz.in/ stretch main"
+    - "deb http://apt.srv.kojedz.in/ buster main"
