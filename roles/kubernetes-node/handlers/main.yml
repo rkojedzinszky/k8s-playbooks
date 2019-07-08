@@ -3,6 +3,9 @@
   systemd:
     daemon_reload: yes
 
+- name: reexec systemd
+  command: systemctl daemon-reexec
+
 - name: restart docker
   service:
     name: docker

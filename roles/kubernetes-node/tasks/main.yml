@@ -6,6 +6,15 @@
 
 - apt: name=curl,tcpdump
 
+- name: Setup systemd default accounting
+  replace:
+    path: /etc/systemd/system.conf
+    regexp: '^.*(DefaultCPUAccounting|DefaultMemoryAccounting|DefaultTasksAccounting).*'
+    replace: '\1=yes'
+  notify: reexec systemd
+
+- meta: flush_handlers
+
 - name: Install container runtime
   include_tasks: "{{ container_runtime }}.yml"
 
