@@ -1,7 +1,7 @@
 ---
 - name: "install gluster server & client utilities"
   apt:
-    name: glusterfs-server,glusterfs-client,lvm2
+    name: glusterfs-server,lvm2
 
 - name: Enable glusterd service
   service:

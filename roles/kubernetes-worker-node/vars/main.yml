@@ -2,3 +2,4 @@
 kubernetes_worker_packages:
 - nfs-common
 - open-iscsi
+- glusterfs-client
