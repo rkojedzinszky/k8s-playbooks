@@ -1,14 +1,23 @@
 ---
-- name: check if docker installed
-  shell: dpkg-query -W docker
-  ignore_errors: True
-  register: is_docker_installed
+- name: Import docker gpg key
+  apt_key:
+    id: 9DC858229FC7DD38854AE2D88D81803C0EBFCD88
+    keyserver: pool.sks-keyservers.net
 
-- name: install docker
-  shell: curl -sL https://get.docker.com/ | bash -
-  when: is_docker_installed is failed
+- name: Deploy docker sources.list
+  copy:
+    content: "deb https://download.docker.com/linux/debian buster stable"
+    dest: /etc/apt/sources.list.d/docker.list
+  notify: update apt cache
 
-- name: configure docker
+- meta: flush_handlers
+
+- name: Install docker
+  apt:
+    name: docker-ce
+  notify: reload systemd
+
+- name: Configure docker
   template:
     src: docker-daemon.json.j2
     dest: /etc/docker/daemon.json

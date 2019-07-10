@@ -1,4 +1,7 @@
 ---
+- name: update apt cache
+  apt: update_cache=Yes
+
 - name: reload systemd
   systemd:
     daemon_reload: yes
