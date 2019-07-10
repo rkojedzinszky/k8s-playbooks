@@ -1,8 +1,10 @@
 ---
+os_debian_distribution: buster
+
 sources:
-- deb http://cdn-fastly.deb.debian.org/debian/ buster main
-- deb http://cdn-fastly.deb.debian.org/debian/ buster-updates main
-- deb http://cdn-fastly.deb.debian.org/debian-security/ buster/updates main
+- "deb http://cdn-fastly.deb.debian.org/debian/ {{ os_debian_distribution }} main"
+- "deb http://cdn-fastly.deb.debian.org/debian/ {{ os_debian_distribution }}-updates main"
+- "deb http://cdn-fastly.deb.debian.org/debian-security/ {{ os_debian_distribution }}/updates main"
 
 essential_packages:
 - less
