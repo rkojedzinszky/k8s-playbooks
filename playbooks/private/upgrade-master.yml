@@ -5,6 +5,9 @@
   - name: Upgrade control plane
     command: kubeadm upgrade apply --yes v{{ kubernetes_version }}
 
+  - name: Update kubectl config
+    command: "cp -af /etc/kubernetes/admin.conf /root/.kube/config"
+
   - name: Unhold kubectl/kubelet
     command: apt-mark unhold kubectl kubelet
 
@@ -20,6 +23,9 @@
   block:
   - name: Upgrade control plane
     command: kubeadm upgrade node experimental-control-plane
+
+  - name: Update kubectl config
+    command: "cp -af /etc/kubernetes/admin.conf /root/.kube/config"
 
   - name: Unhold kubectl/kubelet
     command: apt-mark unhold kubectl kubelet
