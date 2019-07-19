@@ -1,4 +1,6 @@
 ---
+os_debian_distribution: buster
+
 cpufreq:
   governor: ondemand
   tune_sampling_rate: false
