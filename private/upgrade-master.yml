@@ -22,7 +22,7 @@
   when: inventory_hostname != groups['master'][0]
   block:
   - name: Upgrade control plane
-    command: kubeadm upgrade node experimental-control-plane
+    command: kubeadm upgrade node phase control-plane
 
   - name: Update kubectl config
     command: "cp -af /etc/kubernetes/admin.conf /root/.kube/config"
