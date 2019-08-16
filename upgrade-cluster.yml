@@ -1,11 +1,18 @@
 ---
+- hosts: all
+  gather_facts: no
+  tasks:
+  - name: Set supported kubernetes version
+    set_fact:
+      supported_kubernetes_version: [1, 15]
+    run_once: yes
+
 - hosts: cluster
   gather_facts: no
   become: yes
   any_errors_fatal: true
-  tasks:
-  - name: Upgrade kubeadm
-    import_tasks: private/upgrade-kubeadm.yml
+  roles:
+  - upgrade/kubeadm
 
 - hosts: master
   gather_facts: no
@@ -19,18 +26,18 @@
   gather_facts: no
   become: yes
   any_errors_fatal: true
-  tasks:
-  - name: Upgrade control plane
-    import_tasks: private/upgrade-master.yml
+  roles:
+  - upgrade/control-plane
+  - upgrade/kubelet-kubectl
 
 - hosts: worker
   serial: 1
   gather_facts: no
   become: yes
   any_errors_fatal: true
-  tasks:
-  - name: Upgrade worker node
-    import_tasks: private/upgrade-worker.yml
+  roles:
+  - upgrade/worker
+  - upgrade/kubelet-kubectl
 
 - hosts: cluster
   gather_facts: no

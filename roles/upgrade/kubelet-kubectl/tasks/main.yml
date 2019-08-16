@@ -1,0 +1,10 @@
+---
+- name: Unhold kubectl/kubelet
+  command: apt-mark unhold kubectl kubelet
+
+- name: Upgrade kubectl/kubelet
+  apt:
+    name: kubectl={{ kubernetes_version }}-00,kubelet={{ kubernetes_version }}-00
+
+- name: Hold kubectl/kubelet
+  command: apt-mark hold kubectl kubelet

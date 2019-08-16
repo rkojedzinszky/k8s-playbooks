@@ -8,16 +8,6 @@
   - name: Update kubectl config
     command: "cp -af /etc/kubernetes/admin.conf /root/.kube/config"
 
-  - name: Unhold kubectl/kubelet
-    command: apt-mark unhold kubectl kubelet
-
-  - name: Upgrade kubectl/kubelet
-    apt:
-      name: kubectl={{ kubernetes_version }}-00,kubelet={{ kubernetes_version }}-00
-
-  - name: Hold kubectl/kubelet
-    command: apt-mark hold kubectl kubelet
-
 - name: Upgrade other masters
   when: inventory_hostname != groups['master'][0]
   block:
@@ -27,12 +17,3 @@
   - name: Update kubectl config
     command: "cp -af /etc/kubernetes/admin.conf /root/.kube/config"
 
-  - name: Unhold kubectl/kubelet
-    command: apt-mark unhold kubectl kubelet
-
-  - name: Upgrade kubectl/kubelet
-    apt:
-      name: kubectl={{ kubernetes_version }}-00,kubelet={{ kubernetes_version }}-00
-
-  - name: Hold kubectl/kubelet
-    command: apt-mark hold kubectl kubelet
