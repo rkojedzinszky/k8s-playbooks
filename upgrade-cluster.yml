@@ -38,10 +38,3 @@
   roles:
   - upgrade/worker
   - upgrade/kubelet-kubectl
-
-- hosts: cluster
-  gather_facts: no
-  become: yes
-  tasks:
-  - name: Remove ds/kube-proxy
-    import_tasks: private/upgrade-remove-kube-proxy-ds.yml
