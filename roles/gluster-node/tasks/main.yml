@@ -4,3 +4,9 @@
     name:
     - glusterfs-server
     - lvm2
+
+- name: enable and start glusterd
+  systemd:
+    name: glusterd
+    state: started
+    enabled: yes
