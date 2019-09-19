@@ -37,3 +37,6 @@
   notify: apply kubernetes sysctls
   tags:
   - sysctl
+
+- import_tasks: iptables-legacy.yml
+  when: ansible_distribution_release == 'buster'
