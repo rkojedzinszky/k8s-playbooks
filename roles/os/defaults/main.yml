@@ -23,3 +23,5 @@ weekly_fstrim_enable: true
 #  - doma.in
 #  nameservers:
 #  - 8.8.8.8
+
+os_setup_watchdog: True

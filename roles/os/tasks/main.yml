@@ -33,6 +33,7 @@
 - import_tasks: modules.yml
 
 - import_tasks: watchdog.yml
+  when: os_setup_watchdog
   tags:
   - watchdog
 
