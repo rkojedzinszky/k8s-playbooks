@@ -32,7 +32,7 @@
 
 - import_tasks: modules.yml
 
-- import_tasks: watchdog.yml
+- include_tasks: watchdog.yml
   when: os_setup_watchdog
   tags:
   - watchdog
@@ -43,7 +43,7 @@
 
 - import_tasks: bind-services.yml
 
-- import_tasks: cpufreq.yml
+- include_tasks: cpufreq.yml
   when: os_setup_cpufreq
   tags:
   - cpufreq
