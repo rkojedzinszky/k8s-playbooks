@@ -1,7 +1,5 @@
 ---
-os_debian_distribution: buster
-
-os_setup_cpufreq: True
+os_setup_cpufreq: False
 cpufreq:
   governor: ondemand
   tune_sampling_rate: false
@@ -25,4 +23,13 @@ weekly_fstrim_enable: true
 #  nameservers:
 #  - 8.8.8.8
 
-os_setup_watchdog: True
+# Setup watchdog daemon, with periodic ssh to itself, and reboot if fails.
+# This can detect hangups, etc.
+os_setup_watchdog: False
+
+# Bind configured services to `ip`
+os_bind_services: False
+
+# Setup munin-node
+os_setup_munin: False
+os_munin_cidr_allow: 0.0.0.0/0

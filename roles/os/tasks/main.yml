@@ -1,13 +1,18 @@
 ---
-- name: check if ip address is set for host
-  fail:
-    msg: IP address not set for host
+- fail:
+    msg: "Only Debian is supported. Detected: {{ ansible_distribution }}"
+  when: ansible_distribution != "Debian"
+
+- name: Setup host ip
   when: ip is not defined
+  set_fact:
+    ip: "{{ ansible_default_ipv4.address }}"
 
-- name: Setup hostname and resolv.conf
-  import_tasks: resolv.yml
+- import_tasks: resolv.yml
 
-- template: src=sources.list.j2 dest=/etc/apt/sources.list
+- template:
+    src: sources.list.j2
+    dest: /etc/apt/sources.list
   notify: update apt cache
   tags:
   - sources-list
@@ -19,9 +24,8 @@
 - meta: flush_handlers
 
 - name: install some essential packages
-  apt: name={{ essential_packages | join(',') }}
-
-- meta: flush_handlers
+  apt:
+    name: "{{ essential_packages }}"
 
 - name: disable shell history
   file:
@@ -37,11 +41,13 @@
   tags:
   - watchdog
 
-- import_tasks: munin.yml
+- include_tasks: munin.yml
+  when: os_setup_munin
   tags:
   - munin
 
-- import_tasks: bind-services.yml
+- include_tasks: bind-services.yml
+  when: os_bind_services
 
 - include_tasks: cpufreq.yml
   when: os_setup_cpufreq

@@ -1,24 +1,11 @@
 ---
+# These are needed for bootstrapping an admin user
 admin_user: admin
 admin_shell: /bin/bash
 admin_user_ssh_key: "ssh-rsa ..."
 
-rsyslogd_remote: 10.2.2.0
+# See roles/os/defaults/main.yml
 
-container_runtime_insecure_registries:
-- registry.lan
+# See roles/kubernetes-node/defaults/main.yml
 
-# maximum number of log files
-container_runtime_max_log_size: 500000
-docker_max_log_files: 1
-
-# external apt
-apt:
-  ext:
-    keyserver: pgp.mit.edu
-    key_ids:
-    - "0x2ADADF37C3C302A7BADABCC10D946CE6DD9F32EB"
-    sources:
-    - "deb http://apt.srv.kojedz.in/ buster main"
-
-kubernetes_version: 1.15.3
+kubernetes_version: 1.15.4
