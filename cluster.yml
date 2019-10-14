@@ -1,0 +1,7 @@
+---
+- import_playbook: prepare.yml
+
+- hosts: master
+  become: true
+  roles:
+  - kubernetes/master

@@ -1,0 +1,68 @@
+# Count how many different kubeadm configs we have.
+# If we have 0, then we initialize a new cluster.
+# If we have 1, then we go ahead.
+# If we have more, then we bail out.
+#
+# This tasklist will set
+#  chosen_master to a master which we can work on later
+#
+# Notes on the variables:
+#  chosen_master has to be a name present in the inventory
+---
+- name: read kuebadm config
+  command: kubeadm config view
+  register: kubeadm_config
+  ignore_errors: true
+
+- name: hash kubeadm config
+  set_fact:
+    kubeadm_config_hash: "{{ kubeadm_config.stdout | hash('sha1') }}"
+  when: kubeadm_config.rc == 0
+
+- name: count different kubeadm configs
+  run_once: yes
+  set_fact:
+    kubeadm_configs_count: |-
+      {% set configs = dict() %}
+      {% for h in groups['master'] %}{% if 'kubeadm_config_hash' in hostvars[h] %}{% set _ = configs.setdefault(hostvars[h].kubeadm_config_hash, True) %}{% endif %}{% endfor %}
+      {{ configs.keys() | length }}
+
+- debug:
+    msg: "Count of different kubeadm configs (different k8s clusters): {{ kubeadm_configs_count }}"
+  run_once: yes
+
+- fail:
+    msg: "More than one kubeadm configs (different k8s clusters) found. Cannot handle this."
+  when: "kubeadm_configs_count|int > 1"
+  run_once: yes
+
+- name: Initialize cluster
+  when: "kubeadm_configs_count|int == 0"
+  run_once: yes
+  block:
+  - include_tasks: init-cluster.yml
+  - name: Select master to work on later
+    set_fact:
+      chosen_master: "{{ inventory_hostname }}"
+
+- name: Gather data from existing cluster
+  when: "kubeadm_configs_count|int == 1"
+  block:
+  - name: Select master to work on later
+    run_once: yes
+    set_fact:
+      chosen_master: |-
+        {% set hosts = [] %}
+        {% for h in groups['master'] %}{% if 'kubeadm_config_hash' in hostvars[h] %}{% set _ = hosts.append(h) %}{% endif %}{% endfor %}
+        {{ hosts | first }}
+
+- name: Read stored kubeadm-config.yaml
+  run_once: yes
+  delegate_to: "{{ chosen_master }}"
+  command: "kubeadm config view"
+  register: FINAL_KUBEADM_CONFIG
+
+- name: Parse stored kubeadm config
+  run_once: yes
+  set_fact:
+    FINAL_KUBEADM_CONFIG: "{{ FINAL_KUBEADM_CONFIG.stdout }}"

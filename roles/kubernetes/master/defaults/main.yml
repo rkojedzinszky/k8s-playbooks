@@ -1,0 +1,3 @@
+# Kubernetes apiserver lb address. If not specified, a single node master
+# can be installed.
+#kubernetes_master_lb_address: 192.168.111.1:6443

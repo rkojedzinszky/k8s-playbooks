@@ -1,0 +1,6 @@
+---
+- name: Initialize / update cluster
+  import_tasks: init-update-cluster.yml
+
+- name: Add missing masters
+  import_tasks: add-masters.yml

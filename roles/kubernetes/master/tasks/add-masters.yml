@@ -1,0 +1,54 @@
+# This tasklist will add missing masters to the existing cluster
+---
+- name: Obtain join command
+  run_once: yes
+  delegate_to: "{{ chosen_master }}"
+  command: "kubeadm token create --print-join-command"
+  register: join_command
+
+- name: Parse join command
+  run_once: yes
+  set_fact:
+    join_command: "{{ join_command.stdout_lines[0] }}"
+
+- name: Check if master needs to be joined
+  stat:
+    path: /etc/kubernetes/kubelet.conf
+  register: kubelet_conf_stat
+
+- when: not kubelet_conf_stat.stat.exists
+  block:
+  - name: Create kubernetes directories
+    file:
+      path: /etc/kubernetes/pki/etcd
+      state: directory
+
+  - name: Distribute CA files
+    include_tasks: distribute-file.yaml
+    loop:
+    - path: /etc/kubernetes/pki/etcd/ca.crt
+    - path: /etc/kubernetes/pki/etcd/ca.key
+      mode: "0600"
+    - path: /etc/kubernetes/pki/ca.crt
+    - path: /etc/kubernetes/pki/ca.key
+      mode: "0600"
+    - path: /etc/kubernetes/pki/front-proxy-ca.crt
+    - path: /etc/kubernetes/pki/front-proxy-ca.key
+      mode: "0600"
+    - path: /etc/kubernetes/pki/sa.key
+      mode: "0600"
+    - path: /etc/kubernetes/pki/sa.pub
+      mode: "0600"
+    vars:
+      source_host: "{{ chosen_master }}"
+
+  - name: Join master to cluster
+    command: "{{ join_command }} --control-plane"
+
+  - name: init kube config
+    file:
+      path: /root/.kube
+      state: directory
+
+  - name: copy kubectl config
+    command: "cp -f /etc/kubernetes/admin.conf /root/.kube/config"

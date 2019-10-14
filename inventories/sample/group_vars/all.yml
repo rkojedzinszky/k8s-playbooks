@@ -6,6 +6,8 @@ admin_user_ssh_key: "ssh-rsa ..."
 
 # See roles/os/defaults/main.yml
 
-# See roles/kubernetes-node/defaults/main.yml
+# See roles/prepare/kubernetes-node/defaults/main.yml
 
 kubernetes_version: 1.15.4
+
+# See roles/kubernetes/master/defaults/main.yml
