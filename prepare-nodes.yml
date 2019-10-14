@@ -5,11 +5,6 @@
   - os
   - kubernetes-node
 
-- hosts: master
-  become: true
-  roles:
-  - kubernetes-control-plane
-
 - hosts: worker
   become: true
   roles:

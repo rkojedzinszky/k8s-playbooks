@@ -15,13 +15,6 @@
   - upgrade/kubeadm
 
 - hosts: master
-  gather_facts: no
-  become: yes
-  any_errors_fatal: true
-  roles:
-  - kubernetes-control-plane
-
-- hosts: master
   serial: 1
   gather_facts: no
   become: yes
