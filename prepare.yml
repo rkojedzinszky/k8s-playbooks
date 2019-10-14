@@ -1,8 +1,9 @@
 ---
+- import_playbook: os.yml
+
 - hosts: cluster
   become: true
   roles:
-  - os
   - prepare/kubernetes-node
 
 - hosts: worker
