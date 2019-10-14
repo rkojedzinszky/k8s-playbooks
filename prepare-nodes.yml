@@ -3,14 +3,14 @@
   become: true
   roles:
   - os
-  - kubernetes-node
+  - prepare/kubernetes-node
 
 - hosts: worker
   become: true
   roles:
-  - kubernetes-worker-node
+  - prepare/kubernetes-worker-node
 
 - hosts: gluster
   become: true
   roles:
-  - gluster-node
+  - prepare/gluster-node
