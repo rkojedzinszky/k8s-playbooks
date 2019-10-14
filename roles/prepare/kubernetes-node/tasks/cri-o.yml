@@ -53,6 +53,8 @@
     value: "{{ container_runtime_max_log_size }}"
   notify: restart crio
 
+- import_tasks: cri-o-fix-conmon-path.yml
+
 - meta: flush_handlers
 
 - name: Ensure crio is started
