@@ -1,4 +1,4 @@
-# Reboot a worker
+# Reboot a node
 ---
 - name: "{{ inventory_hostname }} - select master to perform operations"
   set_fact:
@@ -51,24 +51,3 @@
 
 - name: "{{ inventory_hostname }} - reboot"
   reboot: {}
-
-- name: "{{ inventory_hostname }} - wait until becomes Ready"
-  command:
-  args:
-    argv:
-    - kubectl
-    - get
-    - node
-    - "{{ inventory_hostname }}"
-    - -o
-    - jsonpath={range .status.conditions[:]}{.reason}{"\n"}{end}
-  delegate_to: "{{ selected_master }}"
-  register: result
-  until: "'NodeStatusUnknown' not in result.stdout_lines"
-  retries: 60
-  delay: 2
-
-- name: "{{ inventory_hostname }} - uncordon"
-  command: "kubectl uncordon {{ inventory_hostname }}"
-  delegate_to: "{{ selected_master }}"
-

@@ -1,17 +1,9 @@
 ---
-- hosts: master,worker
-  gather_facts: false
-  tasks:
-
-  - name: Assign node class
-    delegate_to: localhost
-    set_fact:
-      node_class: "{{ ['worker', 'master'] | intersect(group_names) | first }}"
-
-- hosts: master,worker
+- hosts: cluster
   gather_facts: false
   become: true
   serial: 1
-
   tasks:
-  - include_tasks: "private/reboot-{{ node_class }}.yml"
+  - import_tasks: private/reboot-reboot.yml
+  - import_tasks: private/reboot-check-apiserver.yml
+  - import_tasks: private/reboot-uncordon.yml
