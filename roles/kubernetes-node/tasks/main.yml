@@ -18,17 +18,42 @@
 - name: Install container runtime
   include_tasks: "{{ container_runtime }}.yml"
 
-- name: disable any swap
-  lineinfile: dest=/etc/fstab regexp=swap state=absent
+- name: disable swap permanently
+  lineinfile:
+    dest: /etc/fstab
+    regexp: swap
+    state: absent
 
-- apt_key: url=https://packages.cloud.google.com/apt/doc/apt-key.gpg
-- copy: src=kubernetes.list dest=/etc/apt/sources.list.d/
+- name: disable active swap
+  command: swapoff -a
+
+- name: import google apt key
+  apt_key:
+    url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+
+- name: deploy kubernetes sources.list
+  copy:
+    src: kubernetes.list
+    dest: /etc/apt/sources.list.d/
   notify: update apt cache
+
 - meta: flush_handlers
-- apt:
-    name: "kubelet={{ kubernetes_version }}-00,kubeadm={{ kubernetes_version }}-00,kubectl={{ kubernetes_version }}-00"
-- shell: apt-mark hold kubelet kubeadm kubectl
-- systemd: daemon_reload=yes name=kubelet state=restarted
+
+- name: install kubernetes packages
+  apt:
+    name:
+    - "kubelet={{ kubernetes_version }}-00"
+    - "kubeadm={{ kubernetes_version }}-00"
+    - "kubectl={{ kubernetes_version }}-00"
+
+- name: hold kubernetes packages
+  shell: apt-mark hold kubelet kubeadm kubectl
+
+- name: restart kubelet service
+  systemd:
+    daemon_reload: yes
+    name: kubelet
+    state: restarted
 
 - name: deploy kubernetes sysctls
   template:
