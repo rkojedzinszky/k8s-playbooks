@@ -5,3 +5,8 @@
   become: true
   roles:
   - kubernetes/master
+
+- hosts: worker
+  become: true
+  roles:
+  - kubernetes/worker
