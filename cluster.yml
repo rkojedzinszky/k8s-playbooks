@@ -4,9 +4,15 @@
 - hosts: master
   become: true
   roles:
-  - kubernetes/master
+  - kubernetes/control-plane
 
-- hosts: cluster
+- hosts: master
+  serial: 1
+  become: true
+  roles:
+  - kubernetes/node
+
+- hosts: worker
   become: true
   roles:
   - kubernetes/node

@@ -31,7 +31,7 @@
       file:
         path: /etc/kubernetes/pki/etcd
         state: directory
-  
+
     - name: Distribute CA files
       include_tasks: distribute-file.yaml
       loop:
@@ -57,6 +57,8 @@
 
   - name: Join node
     command: "{{ join_command }}"
+
+  - import_tasks: private/check-apiserver.yml
 
   - name: Prepare .kube/config
     when: "'master' is in group_names"

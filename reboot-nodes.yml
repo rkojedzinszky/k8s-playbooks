@@ -5,5 +5,5 @@
   serial: 1
   tasks:
   - import_tasks: private/reboot-reboot.yml
-  - import_tasks: private/reboot-check-apiserver.yml
+  - import_tasks: private/check-apiserver.yml
   - import_tasks: private/reboot-uncordon.yml
