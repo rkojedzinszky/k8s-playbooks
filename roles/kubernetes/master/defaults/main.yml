@@ -1,3 +1,9 @@
+# Kubernetes service subnet
+kubernetes_service_subnet: 10.96.0.0/12
+
+# Kubernetes pod subnet
+kubernetes_pod_subnet: 10.112.0.0/12
+
 # Kubernetes apiserver lb address. If not specified, a single node master
 # can be installed.
 #kubernetes_master_lb_address: 192.168.111.1:6443
