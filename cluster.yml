@@ -6,7 +6,7 @@
   roles:
   - kubernetes/master
 
-- hosts: worker
+- hosts: cluster
   become: true
   roles:
-  - kubernetes/worker
+  - kubernetes/node

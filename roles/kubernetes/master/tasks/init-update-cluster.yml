@@ -45,7 +45,7 @@
     set_fact:
       chosen_master: "{{ inventory_hostname }}"
 
-- name: Gather data from existing cluster
+- name: Choose one from existing masters
   when: "kubeadm_configs_count|int == 1"
   block:
   - name: Select master to work on later
@@ -55,14 +55,3 @@
         {% set hosts = [] %}
         {% for h in groups['master'] %}{% if 'kubeadm_config_hash' in hostvars[h] %}{% set _ = hosts.append(h) %}{% endif %}{% endfor %}
         {{ hosts | first }}
-
-- name: Read stored kubeadm-config.yaml
-  run_once: yes
-  delegate_to: "{{ chosen_master }}"
-  command: "kubeadm config view"
-  register: FINAL_KUBEADM_CONFIG
-
-- name: Parse stored kubeadm config
-  run_once: yes
-  set_fact:
-    FINAL_KUBEADM_CONFIG: "{{ FINAL_KUBEADM_CONFIG.stdout }}"
