@@ -13,7 +13,7 @@ apt:
     sources: []
 
 daily_fstrim_enable: false
-weekly_fstrim_enable: true
+weekly_fstrim_enable: false
 
 # resolver configuration
 #dnsConfig:
