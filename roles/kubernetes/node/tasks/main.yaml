@@ -1,10 +1,5 @@
 # Join a node to the cluster
 ---
-- name: Check if node needs to be joined
-  stat:
-    path: /etc/kubernetes/kubelet.conf
-  register: kubelet_conf_stat
-
 - name: Join node
   when: not kubelet_conf_stat.stat.exists
   block:
