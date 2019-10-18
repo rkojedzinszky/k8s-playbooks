@@ -1,5 +1,5 @@
 ---
-- hosts: all
+- hosts: cluster
   gather_facts: no
   tasks:
   - name: Set supported kubernetes version
