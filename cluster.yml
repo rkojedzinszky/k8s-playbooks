@@ -3,25 +3,21 @@
 
 # Initialize k8s cluster if needed
 - hosts: master
-  become: true
   roles:
   - kubernetes/control-plane
 
 # Obtain one join command for playbook run
 - hosts: cluster
-  become: true
   roles:
   - kubernetes/node-join-command
 
 # join masters sequentially
 - hosts: master
   serial: 1
-  become: true
   roles:
   - kubernetes/node
 
 # join workers in parallel
 - hosts: worker
-  become: true
   roles:
   - kubernetes/node

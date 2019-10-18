@@ -2,16 +2,13 @@
 - import_playbook: os.yml
 
 - hosts: cluster
-  become: true
   roles:
   - prepare/kubernetes-node
 
 - hosts: worker
-  become: true
   roles:
   - prepare/kubernetes-worker-node
 
 - hosts: gluster
-  become: true
   roles:
   - prepare/gluster-node

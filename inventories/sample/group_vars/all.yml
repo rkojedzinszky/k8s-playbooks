@@ -1,9 +1,4 @@
 ---
-# These are needed for bootstrapping an admin user
-admin_user: admin
-admin_shell: /bin/bash
-admin_user_ssh_key: "ssh-rsa ..."
-
 # See roles/os/defaults/main.yml
 
 # See roles/prepare/kubernetes-node/defaults/main.yml

@@ -9,7 +9,6 @@
 
 - hosts: cluster
   gather_facts: no
-  become: yes
   any_errors_fatal: true
   roles:
   - upgrade/kubeadm
@@ -17,7 +16,6 @@
 - hosts: master
   serial: 1
   gather_facts: no
-  become: yes
   any_errors_fatal: true
   roles:
   - upgrade/control-plane
@@ -26,7 +24,6 @@
 - hosts: worker
   serial: 1
   gather_facts: no
-  become: yes
   any_errors_fatal: true
   roles:
   - upgrade/worker
