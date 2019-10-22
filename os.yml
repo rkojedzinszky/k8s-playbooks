@@ -1,4 +1,5 @@
 ---
 - hosts: cluster
   roles:
+  - assign-ip
   - os

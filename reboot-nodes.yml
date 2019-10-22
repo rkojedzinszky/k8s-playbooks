@@ -1,6 +1,9 @@
 ---
 - hosts: cluster
-  gather_facts: false
+  roles:
+  - assign-ip
+
+- hosts: cluster
   serial: 1
   tasks:
   - import_tasks: private/reboot-reboot.yml
