@@ -33,7 +33,7 @@
     name: kubelet
     state: stopped
 
-- name: "{{ inventory_hostname }} - wait until becomes NotReady"
+- name: "{{ inventory_hostname }} - obtain last KubeletReady heartbeat"
   command:
   args:
     argv:
@@ -42,12 +42,9 @@
     - node
     - "{{ inventory_hostname }}"
     - -o
-    - jsonpath={range .status.conditions[:]}{.reason}{"\n"}{end}
+    - jsonpath={.status.conditions[?(@.reason=="KubeletReady")].lastHeartbeatTime}
   delegate_to: "{{ selected_master }}"
-  register: result
-  until: "'NodeStatusUnknown' in result.stdout_lines"
-  retries: 60
-  delay: 2
+  register: last_kubeletready_heartbeat
 
 - name: "{{ inventory_hostname }} - reboot"
   reboot: {}
