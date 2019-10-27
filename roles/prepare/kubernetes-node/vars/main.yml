@@ -1,3 +1,7 @@
 ---
 # CRI-O
 cri_o_version: 1.15
+
+cri_o_cni_configurations:
+- 100-crio-bridge.conf
+- 200-loopback.conf

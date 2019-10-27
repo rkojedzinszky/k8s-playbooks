@@ -21,6 +21,13 @@
     name: cri-o-{{ cri_o_version }}
   notify: reload systemd
 
+- name: clear cri-o shipped cni configuration
+  file:
+    path: "/etc/cni/net.d/{{ item }}"
+    state: absent
+  loop: "{{ cri_o_cni_configurations }}"
+  notify: restart crio
+
 - name: Set default cgroup_manager for cri-o
   ini_file:
     path: /etc/crio/crio.conf
