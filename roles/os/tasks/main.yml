@@ -31,12 +31,12 @@
 
 - import_tasks: modules.yml
 
-- include_tasks: watchdog.yml
+- import_tasks: watchdog.yml
   when: os_setup_watchdog
   tags:
   - watchdog
 
-- include_tasks: munin.yml
+- import_tasks: munin.yml
   when: os_setup_munin
   tags:
   - munin
@@ -44,7 +44,7 @@
 - include_tasks: bind-services.yml
   when: os_bind_services
 
-- include_tasks: cpufreq.yml
+- import_tasks: cpufreq.yml
   when: os_setup_cpufreq
   tags:
   - cpufreq
