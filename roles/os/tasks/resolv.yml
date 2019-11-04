@@ -4,6 +4,10 @@
     content: |
       {{ inventory_hostname }}
     dest: /etc/hostname
+  notify:
+  - hostname updated
+
+- meta: flush_handlers
 
 - name: generate hosts file
   template:

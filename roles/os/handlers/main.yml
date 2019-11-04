@@ -33,3 +33,7 @@
   service:
     name: rsyslog
     state: restarted
+
+- name: set hostname
+  listen: hostname updated
+  command: hostname --file /etc/hostname
