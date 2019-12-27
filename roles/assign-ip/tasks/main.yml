@@ -3,3 +3,5 @@
   when: ip is not defined
   set_fact:
     ip: "{{ ansible_default_ipv4.address }}"
+  tags:
+  - always
