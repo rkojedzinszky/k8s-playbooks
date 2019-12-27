@@ -8,11 +8,6 @@
   run_once: yes
   when: 'desired_kubernetes_version[0]|int != supported_kubernetes_version[0] or desired_kubernetes_version[1]|int != supported_kubernetes_version[1]'
 
-- name: Select master to work on
-  set_fact:
-    chosen_master: "{{ groups['master'] | random }}"
-  run_once: yes
-
 - name: Determine existing kubernetes version
   shell: "kubeadm config view | awk '/kubernetesVersion/ {print $2}'"
   register: kubeadm_config_output
