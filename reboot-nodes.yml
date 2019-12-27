@@ -3,7 +3,7 @@
   roles:
   - kubernetes/choose-master
   - assign-ip
-  - prepare-cni-check
+  - kubernetes/prepare-cni-check
 
 - hosts: cluster
   serial: 1
