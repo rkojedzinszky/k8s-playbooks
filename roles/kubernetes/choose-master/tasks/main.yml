@@ -1,0 +1,7 @@
+---
+- name: Select master to work on
+  set_fact:
+    chosen_master: "{{ groups['master'] | random }}"
+
+- debug:
+    msg: "Chosen master is {{ chosen_master }}"

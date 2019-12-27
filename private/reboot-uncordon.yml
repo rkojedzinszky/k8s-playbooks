@@ -16,6 +16,14 @@
   retries: 60
   delay: 2
 
+- name: "Check if all podCIDRs are reachable"
+  shell: "ip route | grep -q '^{{ item }} '"
+  register: ip_route_get
+  until: ip_route_get.rc == 0
+  loop: "{{ otherpodcidrs }}"
+  retries: 90
+  delay: 4
+
 - name: "{{ inventory_hostname }} - uncordon"
   command: "kubectl uncordon {{ inventory_hostname }}"
   delegate_to: "{{ selected_master }}"

@@ -1,0 +1,39 @@
+---
+- name: Gather own podCIDR
+  command:
+  args:
+    argv:
+    - kubectl
+    - get
+    - node
+    - "{{ inventory_hostname }}"
+    - -o
+    - jsonpath={.spec.podCIDR}
+  register: ownpodcidr
+  delegate_to: "{{ chosen_master }}"
+
+- name: Parse own podCIDR
+  set_fact:
+    ownpodcidr: "{{ ownpodcidr.stdout }}"
+
+- name: Collect full cluster podCIDR assignments
+  command:
+  args:
+    argv:
+    - kubectl
+    - get
+    - node
+    - -o
+    - jsonpath={.items[*].spec.podCIDR}
+  register: allpodcidrs
+  run_once: yes
+  delegate_to: "{{ chosen_master }}"
+
+- name: Parse full cluster podCIDR assignments
+  set_fact:
+    allpodcidrs: "{{ allpodcidrs.stdout.split(' ') }}"
+  run_once: yes
+
+- name: Set podCIDR list to check after reboot
+  set_fact:
+    otherpodcidrs: "{{ allpodcidrs | difference([ownpodcidr]) }}"

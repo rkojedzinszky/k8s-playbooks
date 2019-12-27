@@ -1,7 +1,9 @@
 ---
 - hosts: cluster
   roles:
+  - kubernetes/choose-master
   - assign-ip
+  - prepare-cni-check
 
 - hosts: cluster
   serial: 1
