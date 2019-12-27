@@ -10,7 +10,7 @@
     - "{{ inventory_hostname }}"
     - -o
     - jsonpath={.status.conditions[?(@.reason=="KubeletReady")].lastHeartbeatTime}
-  delegate_to: "{{ selected_master }}"
+  delegate_to: "{{ chosen_master }}"
   register: kubeletready_heartbeat
   until: "kubeletready_heartbeat.stdout not in ('', last_kubeletready_heartbeat.stdout)"
   retries: 60
@@ -26,4 +26,4 @@
 
 - name: "{{ inventory_hostname }} - uncordon"
   command: "kubectl uncordon {{ inventory_hostname }}"
-  delegate_to: "{{ selected_master }}"
+  delegate_to: "{{ chosen_master }}"

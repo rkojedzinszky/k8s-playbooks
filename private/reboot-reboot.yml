@@ -1,9 +1,5 @@
 # Reboot a node
 ---
-- name: "{{ inventory_hostname }} - select master to perform operations"
-  set_fact:
-    selected_master: '{{ groups["master"] | random }}'
-
 - name: "{{ inventory_hostname }} - check status"
   command:
   args:
@@ -14,19 +10,16 @@
     - "{{ inventory_hostname }}"
     - -o
     - jsonpath={range .status.conditions[:]}{.reason}{"\n"}{end}
-  delegate_to: "{{ selected_master }}"
+  delegate_to: "{{ chosen_master }}"
   register: node_status
 
 - fail:
     msg: "{{ inventory_hostname }} is NotReady"
   when: "'NodeStatusUnknown' in node_status.stdout_lines"
 
-- debug:
-    msg: '{{ inventory_hostname }} - selected master is {{ selected_master }}'
-
 - name: "{{ inventory_hostname }} - drain"
   command: "kubectl drain --ignore-daemonsets --delete-local-data --grace-period=10 {{ inventory_hostname }}"
-  delegate_to: "{{ selected_master }}"
+  delegate_to: "{{ chosen_master }}"
 
 - name: "{{ inventory_hostname }} - stop kubelet"
   service:
@@ -43,7 +36,7 @@
     - "{{ inventory_hostname }}"
     - -o
     - jsonpath={.status.conditions[?(@.reason=="KubeletReady")].lastHeartbeatTime}
-  delegate_to: "{{ selected_master }}"
+  delegate_to: "{{ chosen_master }}"
   register: last_kubeletready_heartbeat
 
 - name: "{{ inventory_hostname }} - reboot"

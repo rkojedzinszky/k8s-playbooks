@@ -1,9 +1,5 @@
 # Upgrade a worker
 ---
-- name: "Select master to perform operations"
-  set_fact:
-    selected_master: '{{ groups["master"] | random }}'
-
 - name: "check status"
   command:
   args:
@@ -14,23 +10,20 @@
     - "{{ inventory_hostname }}"
     - -o
     - jsonpath={range .status.conditions[:]}{.reason}{"\n"}{end}
-  delegate_to: "{{ selected_master }}"
+  delegate_to: "{{ chosen_master }}"
   register: node_status
 
 - fail:
     msg: "{{ inventory_hostname }} is NotReady"
   when: "'NodeStatusUnknown' in node_status.stdout_lines"
 
-- debug:
-    msg: 'Selected master is {{ selected_master }}'
-
 - name: "Drain"
   command: "kubectl drain --ignore-daemonsets --delete-local-data --grace-period=10 {{ inventory_hostname }}"
-  delegate_to: "{{ selected_master }}"
+  delegate_to: "{{ chosen_master }}"
 
 - name: "Uprgade node"
   command: "kubeadm upgrade node config --kubelet-version v{{ kubernetes_version }}"
 
 - name: "Uncordon"
   command: "kubectl uncordon {{ inventory_hostname }}"
-  delegate_to: "{{ selected_master }}"
+  delegate_to: "{{ chosen_master }}"
