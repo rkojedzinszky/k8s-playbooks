@@ -4,7 +4,7 @@
   tasks:
   - name: Set supported kubernetes version
     set_fact:
-      supported_kubernetes_version: [1, 16]
+      supported_kubernetes_version: [1, 17]
     run_once: yes
 
 - hosts: cluster
