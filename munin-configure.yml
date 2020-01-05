@@ -3,14 +3,16 @@
   gather_facts: no
 
   tasks:
-  - name: discover modules
-    shell: "munin-node-configure --suggest --shell --remove-also --families=manual,auto 2>/dev/null | sh"
+  - when: os_setup_munin
+    block:
+    - name: discover modules
+      shell: "munin-node-configure --suggest --shell --remove-also --families=manual,auto 2>/dev/null | sh"
 
-  - name: cleanup unwanted modules
-    shell: "cd /etc/munin/plugins && rm -f apt* if*kube* if*veth* port_* swap"
+    - name: cleanup unwanted modules
+      shell: "cd /etc/munin/plugins && rm -f apt* if*kube* if*veth* port_* swap"
 
-  - name: restart munin-node
-    service:
-      name: munin-node
-      state: restarted
+    - name: restart munin-node
+      service:
+        name: munin-node
+        state: restarted
 
