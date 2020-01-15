@@ -1,16 +1,19 @@
 ---
-- hosts: cluster
+- name: Prepare reboots
+  hosts: cluster
   roles:
   - kubernetes/choose-master
   - assign-ip
   - kubernetes/prepare-cni-check
 
-- hosts: master
+- name: Reboot masters
+  hosts: master
   serial: 1
   roles:
   - kubernetes/reboot-node
 
-- hosts: worker
+- name: Reboot workers
+  hosts: worker
   serial: "{{ REBOOT_SERIAL | default(1) }}"
   roles:
   - kubernetes/reboot-node
