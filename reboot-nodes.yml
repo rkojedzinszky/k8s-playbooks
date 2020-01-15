@@ -5,7 +5,12 @@
   - assign-ip
   - kubernetes/prepare-cni-check
 
-- hosts: cluster
+- hosts: master
   serial: 1
+  roles:
+  - kubernetes/reboot-node
+
+- hosts: worker
+  serial: "{{ REBOOT_SERIAL | default(1) }}"
   roles:
   - kubernetes/reboot-node
