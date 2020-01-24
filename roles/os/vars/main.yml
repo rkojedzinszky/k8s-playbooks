@@ -11,10 +11,6 @@ essential_packages:
 - net-tools
 - irqbalance
 
-blacklisted_modules:
-- brcmfmac
-- 8189fs
-
 os_fw_modules:
 - br-netfilter
 
