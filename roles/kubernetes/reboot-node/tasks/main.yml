@@ -1,5 +1,6 @@
 ---
-- import_tasks: reboot.yml
+- include_tasks: reboot.yml
+  when: "not (reboot_reboot_done | default(False))"
 
 - import_tasks: private/check-apiserver.yml
 
