@@ -6,7 +6,6 @@ sources:
 
 essential_packages:
 - less
-- etckeeper
 - atop
 - net-tools
 - irqbalance
