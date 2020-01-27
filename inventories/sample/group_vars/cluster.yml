@@ -1,6 +1,8 @@
 ---
 # See roles/os/defaults/main.yml
 
+# See roles/prepare/container-runtime/defaults/main.yml
+
 # See roles/prepare/kubernetes-node/defaults/main.yml
 
 kubernetes_version: 1.15.4
