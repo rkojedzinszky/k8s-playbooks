@@ -3,14 +3,14 @@
   apt:
     name: apt-transport-https
 
-- name: import Project Atomic gpg key
+- name: import OBS key
   apt_key:
-    id: 018BA5AD9DF57A4448F0E6CF8BECF1637AD8C79D
-    keyserver: pool.sks-keyservers.net
+    url: https://build.opensuse.org/projects/devel:kubic:libcontainers:stable/public_key.asc
+    id: 2472D6D0D2F66AF87ABA8DA34D64390375060AA4
 
 - name: Deploy cri-o sources.list
   copy:
-    content: "deb http://ppa.launchpad.net/projectatomic/ppa/ubuntu bionic main"
+    content: "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/Debian_10 ./"
     dest: /etc/apt/sources.list.d/cri-o.list
   notify: update apt cache
 
@@ -26,6 +26,14 @@
     path: "/etc/cni/net.d/{{ item }}"
     state: absent
   loop: "{{ cri_o_cni_configurations }}"
+  notify: restart crio
+
+- name: Set runc path for cri-o
+  ini_file:
+    path: /etc/crio/crio.conf
+    section: crio.runtime.runtimes.runc
+    option: runtime_path
+    value: "{{ cri_o_runc_runtime_path | to_json }}"
   notify: restart crio
 
 - name: Set default cgroup_manager for cri-o
@@ -59,8 +67,6 @@
     option: log_size_max
     value: "{{ container_runtime_max_log_size }}"
   notify: restart crio
-
-- import_tasks: cri-o-fix-conmon-path.yml
 
 - meta: flush_handlers
 
