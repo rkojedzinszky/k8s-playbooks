@@ -1,9 +1,11 @@
 ---
-- name: Install apt-transport-https
+- name: Install packages needed to access OBS repository
   apt:
-    name: apt-transport-https
+    name:
+    - apt-transport-https
+    - ca-certificates
 
-- name: import OBS key
+- name: Import OBS key
   apt_key:
     url: https://build.opensuse.org/projects/devel:kubic:libcontainers:stable/public_key.asc
     id: 2472D6D0D2F66AF87ABA8DA34D64390375060AA4
