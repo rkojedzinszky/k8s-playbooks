@@ -1,0 +1,18 @@
+---
+- name: update apt cache
+  apt: update_cache=Yes
+
+- name: reload systemd
+  systemd:
+    daemon_reload: yes
+
+- name: restart docker
+  service:
+    name: docker
+    state: restarted
+
+- name: restart crio
+  service:
+    name: crio
+    state: restarted
+    enabled: yes

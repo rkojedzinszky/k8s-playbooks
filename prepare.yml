@@ -3,6 +3,7 @@
 
 - hosts: cluster
   roles:
+  - prepare/container-runtime
   - prepare/kubernetes-node
 
 - hosts: worker

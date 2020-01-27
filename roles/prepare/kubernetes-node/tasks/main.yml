@@ -15,9 +15,6 @@
 
 - meta: flush_handlers
 
-- name: Install container runtime
-  include_tasks: "{{ container_runtime }}.yml"
-
 - name: disable swap permanently
   lineinfile:
     dest: /etc/fstab
