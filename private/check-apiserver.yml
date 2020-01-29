@@ -14,7 +14,7 @@
     - "https://{{ ip }}:6443/healthz"
   register: result
   until: "'ok' == result.stdout"
-  retries: 48
+  retries: 120
   delay: 5
   tags:
   - health-check
