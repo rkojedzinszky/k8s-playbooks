@@ -4,3 +4,7 @@ net.bridge.bridge-nf-call-iptables=1
 net.bridge.bridge-nf-call-ip6tables=1
 
 vm.max_map_count=524288
+
+{% for s in node_sysctls | default([]) %}
+{{ s }}
+{% endfor %}

@@ -1,2 +1,11 @@
 # kubernetes_version needs to be specified explicitly like this:
 #kubernetes_version: 1.15.4
+
+# Node specific sysctls can be specified here.
+# Please note, that usually PODs get system defaults.
+# If you want defaults for PODs, then tune it in the
+# corresponding container runtime.
+#
+#node_sysctls:
+#- net.ipv4.tcp_keepalive_intvl = 10
+#- net.ipv4.tcp_keepalive_time = 60
