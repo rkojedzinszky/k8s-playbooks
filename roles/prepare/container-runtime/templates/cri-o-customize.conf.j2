@@ -1,0 +1,11 @@
+[crio.runtime]
+cgroup_manager = {{ container_runtime_cgroup_driver | to_json }}
+default_sysctls = {{ container_runtime_default_sysctls | to_json }}
+log_size_max = {{ container_runtime_max_log_size }}
+
+[crio.runtime.runtimes.runc]
+runtime_path = "{{ cri_o_runc_runtime_path }}"
+
+[crio.image]
+registries = {{ container_runtime_registries | to_json }}
+insecure_registries = {{ container_runtime_insecure_registries | to_json }}

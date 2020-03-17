@@ -15,3 +15,6 @@ container_runtime_max_log_size: 1000000
 
 # maximum number of log files
 docker_max_log_files: 1
+
+# Default sysctls for containers
+container_runtime_default_sysctls: []

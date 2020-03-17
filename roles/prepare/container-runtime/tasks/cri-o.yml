@@ -5,3 +5,16 @@
 
 - include_tasks: cri-o-setup.yml
   when: "cri_o_count.stdout|int == 0"
+
+- name: Ensure crio configuration drop-in directory exists
+  file:
+    path: /etc/crio/crio.conf.d
+    state: directory
+
+- name: Generate cri-o drop-in configuration
+  template:
+    src: cri-o-customize.conf.j2
+    dest: /etc/crio/crio.conf.d/zz-customize.conf
+  notify: restart crio
+
+- meta: flush_handlers

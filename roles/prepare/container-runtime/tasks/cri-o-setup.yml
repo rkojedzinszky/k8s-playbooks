@@ -23,6 +23,8 @@
     name: cri-o-{{ cri_o_version }}
   notify: reload systemd
 
+- meta: flush_handlers
+
 - name: clear cri-o shipped cni configuration
   file:
     path: "/etc/cni/net.d/{{ item }}"
@@ -30,50 +32,7 @@
   loop: "{{ cri_o_cni_configurations }}"
   notify: restart crio
 
-- name: Set runc path for cri-o
-  ini_file:
-    path: /etc/crio/crio.conf
-    section: crio.runtime.runtimes.runc
-    option: runtime_path
-    value: "{{ cri_o_runc_runtime_path | to_json }}"
-  notify: restart crio
-
-- name: Set default cgroup_manager for cri-o
-  ini_file:
-    path: /etc/crio/crio.conf
-    section: crio.runtime
-    option: cgroup_manager
-    value: "{{ container_runtime_cgroup_driver | to_json }}"
-  notify: restart crio
-
-- name: Set default registry for cri-o
-  ini_file:
-    path: /etc/crio/crio.conf
-    section: crio.image
-    option: registries
-    value: "{{ container_runtime_registries | to_json }}"
-  notify: restart crio
-
-- name: Set insecure registries for cri-o
-  ini_file:
-    path: /etc/crio/crio.conf
-    section: crio.image
-    option: insecure_registries
-    value: "{{ container_runtime_insecure_registries | to_json }}"
-  notify: restart crio
-
-- name: Set container log size for cri-o
-  ini_file:
-    path: /etc/crio/crio.conf
-    section: crio.runtime
-    option: log_size_max
-    value: "{{ container_runtime_max_log_size }}"
-  notify: restart crio
-
-- meta: flush_handlers
-
 - name: Ensure crio is started
   service:
     name: crio
-    state: started
     enabled: yes
