@@ -66,3 +66,12 @@
 - name: export variables for later use
   set_fact:
     container_runtime_cgroup_driver: "{{ container_runtime_cgroup_driver }}"
+
+- name: Load modules for IPVS on boot
+  template:
+    src: ipvs-modules.conf.j2
+    dest: /etc/modules-load.d/ipvs-modules.conf
+
+- name: Load modules for IPVS
+  shell: "modprobe {{ item }} || true"
+  loop: "{{ kuberneter_node_ipvs_modules }}"
