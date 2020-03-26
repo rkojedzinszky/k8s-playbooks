@@ -15,7 +15,7 @@
     dest: "{{ tempdir }}/kubeadm-config.yaml"
 
 - name: initialize cluster
-  command: "kubeadm init --config {{ tempdir }}/kubeadm-config.yaml"
+  command: "kubeadm init --config {{ tempdir }}/kubeadm-config.yaml {{ kubeadm_skip_phases }}"
 
 - name: init kube config
   file:
@@ -30,5 +30,10 @@
     path: "{{ tempdir }}"
     state: absent
 
-- name: Deploy kube-router
+- name: Deploy kube-router without service proxy
   command: "kubectl apply -f https://raw.githubusercontent.com/cloudnativelabs/kube-router/master/daemonset/kubeadm-kuberouter.yaml"
+  when: not kubernetes_use_kube_router_service_proxy
+
+- name: Deploy kube-router with service proxy
+  command: "kubectl apply -f https://raw.githubusercontent.com/cloudnativelabs/kube-router/master/daemonset/kubeadm-kuberouter-all-features.yaml"
+  when: kubernetes_use_kube_router_service_proxy

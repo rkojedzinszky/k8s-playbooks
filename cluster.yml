@@ -4,6 +4,7 @@
 # Initialize k8s cluster if needed
 - hosts: master
   roles:
+  - kubernetes/kubeadm-phases
   - kubernetes/control-plane
 
 # Obtain one join command for playbook run

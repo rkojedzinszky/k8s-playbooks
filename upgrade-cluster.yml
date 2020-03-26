@@ -4,7 +4,7 @@
   tasks:
   - name: Set supported kubernetes version
     set_fact:
-      supported_kubernetes_version: [1, 17]
+      supported_kubernetes_version: [1, 18]
     run_once: yes
 
 - hosts: cluster
@@ -19,6 +19,7 @@
   gather_facts: no
   any_errors_fatal: true
   roles:
+  - kubernetes/kubeadm-phases
   - upgrade/control-plane
   - upgrade/kubelet-kubectl
 

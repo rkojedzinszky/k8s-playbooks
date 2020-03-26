@@ -1,0 +1,12 @@
+---
+- name: Prepare kubeadm skip-phases argument
+  run_once: yes
+  set_fact:
+    kubeadm_skip_phases: >-
+      {%- set skip_phases = [] %}
+      {%- if kubernetes_use_kube_router_service_proxy %}
+      {%- set _ = skip_phases.append('addon/kube-proxy') %}
+      {%- endif %}
+      {%- if skip_phases -%}
+      --skip-phases={{ skip_phases | join(',') }}
+      {%- endif %}
