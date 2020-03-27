@@ -1,3 +1,6 @@
+[crio]
+version_file = "/var/lib/crio/version"
+
 [crio.runtime]
 cgroup_manager = {{ container_runtime_cgroup_driver | to_json }}
 default_sysctls = {{ container_runtime_default_sysctls | to_json }}
