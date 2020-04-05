@@ -22,7 +22,7 @@
   delegate_to: "{{ chosen_master }}"
 
 - name: "Uprgade node"
-  command: "kubeadm upgrade node config --kubelet-version v{{ kubernetes_version }}"
+  command: "kubeadm upgrade node"
 
 - name: "Uncordon"
   command: "kubectl uncordon {{ inventory_hostname }}"
