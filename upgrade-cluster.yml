@@ -1,16 +1,9 @@
 ---
 - hosts: cluster
   gather_facts: no
-  tasks:
-  - name: Set supported kubernetes version
-    set_fact:
-      supported_kubernetes_version: [1, 17]
-    run_once: yes
-
-- hosts: cluster
-  gather_facts: no
   any_errors_fatal: true
   roles:
+  - kubernetes/prepare
   - kubernetes/choose-master
   - upgrade/kubeadm
 

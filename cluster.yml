@@ -1,6 +1,11 @@
 ---
 - import_playbook: prepare.yml
 
+# Prepare kubernetes facts, validate configuration
+- hosts: cluster
+  roles:
+  - kubernetes/prepare
+
 # Initialize k8s cluster if needed
 - hosts: master
   roles:
