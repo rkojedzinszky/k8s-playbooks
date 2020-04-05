@@ -63,10 +63,6 @@
 - import_tasks: iptables-legacy.yml
   when: ansible_distribution_release == 'buster'
 
-- name: export variables for later use
-  set_fact:
-    container_runtime_cgroup_driver: "{{ container_runtime_cgroup_driver }}"
-
 - name: Load modules for IPVS on boot
   template:
     src: ipvs-modules.conf.j2

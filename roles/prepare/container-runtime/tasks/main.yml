@@ -1,3 +1,7 @@
 ---
 - name: Install container runtime
   include_tasks: "{{ container_runtime }}.yml"
+
+- name: export variables for later use
+  set_fact:
+    container_runtime_cgroup_driver: "{{ container_runtime_cgroup_driver }}"
