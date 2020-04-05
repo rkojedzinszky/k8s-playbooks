@@ -1,0 +1,2 @@
+# Specify desired Kubernetes version like below
+#kubernetes_version: 1.17.0

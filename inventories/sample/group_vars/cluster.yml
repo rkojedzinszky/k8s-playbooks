@@ -3,8 +3,8 @@
 
 # See roles/prepare/container-runtime/defaults/main.yml
 
-# See roles/prepare/kubernetes-node/defaults/main.yml
+# See roles/kubernetes/prepare/defaults/main.yml
 
-kubernetes_version: 1.15.4
+# See roles/prepare/kubernetes-node/defaults/main.yml
 
 # See roles/kubernetes/control-plane/defaults/main.yml
