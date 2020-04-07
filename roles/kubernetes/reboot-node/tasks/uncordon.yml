@@ -27,3 +27,8 @@
 - name: "{{ inventory_hostname }} - uncordon"
   command: "kubectl uncordon {{ inventory_hostname }}"
   delegate_to: "{{ chosen_master }}"
+
+- name: Sleep additional grace time
+  wait_for:
+    timeout: "{{ kubernetes_reboot_post_wait_time }}"
+  delegate_to: localhost

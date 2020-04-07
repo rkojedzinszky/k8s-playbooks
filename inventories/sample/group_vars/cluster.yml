@@ -8,3 +8,5 @@
 # See roles/prepare/kubernetes-node/defaults/main.yml
 
 # See roles/kubernetes/control-plane/defaults/main.yml
+
+# See roles/kubernetes/reboot-node/defaults/main.yml

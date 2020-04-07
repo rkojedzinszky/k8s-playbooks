@@ -1,0 +1,3 @@
+---
+# After each reboot, wait this amount of seconds
+kubernetes_reboot_post_wait_time: 0
