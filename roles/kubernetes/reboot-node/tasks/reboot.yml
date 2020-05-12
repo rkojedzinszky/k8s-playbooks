@@ -1,26 +1,5 @@
 # Reboot a node
 ---
-- name: "{{ inventory_hostname }} - check status"
-  command:
-  args:
-    argv:
-    - kubectl
-    - get
-    - node
-    - "{{ inventory_hostname }}"
-    - -o
-    - jsonpath={range .status.conditions[:]}{.reason}{"\n"}{end}
-  delegate_to: "{{ chosen_master }}"
-  register: node_status
-
-- fail:
-    msg: "{{ inventory_hostname }} is NotReady"
-  when: "'NodeStatusUnknown' in node_status.stdout_lines"
-
-- name: "{{ inventory_hostname }} - drain"
-  command: "kubectl drain --ignore-daemonsets --delete-local-data --grace-period=10 {{ inventory_hostname }}"
-  delegate_to: "{{ chosen_master }}"
-
 - name: "{{ inventory_hostname }} - stop kubelet"
   service:
     name: kubelet

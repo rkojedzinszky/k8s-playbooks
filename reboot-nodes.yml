@@ -10,10 +10,12 @@
   hosts: master
   serial: 1
   roles:
+  - kubernetes/drain-node
   - kubernetes/reboot-node
 
 - name: Reboot workers
   hosts: worker
   serial: "{{ REBOOT_SERIAL | default(1) }}"
   roles:
+  - kubernetes/drain-node
   - kubernetes/reboot-node
