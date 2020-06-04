@@ -4,7 +4,7 @@
   when: not kubelet_conf_stat.stat.exists
   block:
   - name: Prepare master
-    when: "'master' is in group_names"
+    when: "'master' in group_names"
     block:
     - name: Create kubernetes directories
       file:
@@ -40,7 +40,7 @@
   - import_tasks: private/check-apiserver.yml
 
   - name: Prepare .kube/config
-    when: "'master' is in group_names"
+    when: "'master' in group_names"
     block:
     - name: init kube config
       file:
