@@ -7,7 +7,9 @@ default_sysctls = {{ container_runtime_default_sysctls | to_json }}
 log_size_max = {{ container_runtime_max_log_size }}
 
 [crio.runtime.runtimes.runc]
-runtime_path = "{{ cri_o_runc_runtime_path }}"
+{% if cri_o_runc_runtime_path.stat.exists %}
+runtime_path = "{{ cri_o_runc_runtime_path.stat.path }}"
+{% endif %}
 
 [crio.image]
 registries = {{ container_runtime_registries | to_json }}

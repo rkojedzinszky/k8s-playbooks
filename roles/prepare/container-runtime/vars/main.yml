@@ -2,8 +2,6 @@
 # CRI-O
 cri_o_version: 1.17
 
-cri_o_runc_runtime_path: /usr/lib/cri-o-runc/sbin/runc
-
 cri_o_cni_configurations:
 - 100-crio-bridge.conf
 - 200-loopback.conf

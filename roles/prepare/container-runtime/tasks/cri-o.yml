@@ -6,6 +6,11 @@
 - include_tasks: cri-o-setup.yml
   when: "cri_o_count.stdout|int == 0"
 
+- name: check for cri-o-runc binary
+  stat:
+    path: /usr/lib/cri-o-runc/sbin/runc
+  register: cri_o_runc_runtime_path
+
 - name: Ensure crio configuration drop-in directory exists
   file:
     path: /etc/crio/crio.conf.d

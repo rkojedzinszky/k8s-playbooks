@@ -21,7 +21,6 @@
 - name: install cri-o
   apt:
     name:
-    - cri-o-runc
     - cri-o-{{ cri_o_version }}
   notify: reload systemd
 
