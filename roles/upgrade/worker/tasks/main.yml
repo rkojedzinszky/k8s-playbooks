@@ -18,7 +18,7 @@
   when: "'NodeStatusUnknown' in node_status.stdout_lines"
 
 - name: "Drain"
-  command: "kubectl drain --ignore-daemonsets --delete-local-data {{ inventory_hostname }}"
+  command: "kubectl drain --ignore-daemonsets --delete-local-data --force {{ inventory_hostname }}"
   delegate_to: "{{ chosen_master }}"
 
 - name: "Uprgade node"
