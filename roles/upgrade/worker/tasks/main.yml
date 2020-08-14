@@ -23,7 +23,3 @@
 
 - name: "Uprgade node"
   command: "kubeadm upgrade node"
-
-- name: "Uncordon"
-  command: "kubectl uncordon {{ inventory_hostname }}"
-  delegate_to: "{{ chosen_master }}"

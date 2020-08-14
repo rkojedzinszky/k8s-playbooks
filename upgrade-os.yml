@@ -13,3 +13,4 @@
   - kubernetes/drain-node
   - upgrade/os
   - kubernetes/reboot-node
+  - kubernetes/uncordon-node

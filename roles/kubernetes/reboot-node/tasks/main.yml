@@ -3,5 +3,3 @@
   when: "not (reboot_reboot_done | default(False))"
 
 - import_tasks: private/check-apiserver.yml
-
-- import_tasks: uncordon.yml

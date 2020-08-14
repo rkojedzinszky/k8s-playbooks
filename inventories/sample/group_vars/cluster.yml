@@ -9,4 +9,4 @@
 
 # See roles/kubernetes/control-plane/defaults/main.yml
 
-# See roles/kubernetes/reboot-node/defaults/main.yml
+# See roles/kubernetes/uncordon-node/defaults/main.yml

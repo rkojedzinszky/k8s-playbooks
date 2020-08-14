@@ -12,6 +12,7 @@
   roles:
   - kubernetes/drain-node
   - kubernetes/reboot-node
+  - kubernetes/uncordon-node
 
 - name: Reboot workers
   hosts: worker
@@ -19,3 +20,4 @@
   roles:
   - kubernetes/drain-node
   - kubernetes/reboot-node
+  - kubernetes/uncordon-node
