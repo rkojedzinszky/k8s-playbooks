@@ -12,8 +12,10 @@
   gather_facts: no
   any_errors_fatal: true
   roles:
+  - kubernetes/drain-node
   - upgrade/control-plane
   - upgrade/kubelet-kubectl
+  - kubernetes/uncordon-node
 
 - hosts: worker
   serial: 1
