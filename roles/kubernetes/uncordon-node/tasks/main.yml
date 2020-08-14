@@ -15,6 +15,7 @@
   until: "kubeletready_heartbeat.stdout not in ('', last_kubeletready_heartbeat.stdout)"
   retries: 60
   delay: 2
+  when: last_kubeletready_heartbeat is defined
 
 - name: "Check if all podCIDRs are reachable"
   shell: "ip route | grep -q '^{{ item }} '"

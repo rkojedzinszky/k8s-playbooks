@@ -5,6 +5,7 @@
   roles:
   - kubernetes/prepare
   - kubernetes/choose-master
+  - kubernetes/prepare-cni-check
   - upgrade/kubeadm
 
 - hosts: master
