@@ -20,6 +20,7 @@
   gather_facts: no
   any_errors_fatal: true
   roles:
+  - kubernetes/drain-node
   - upgrade/worker
   - upgrade/kubelet-kubectl
   - kubernetes/uncordon-node

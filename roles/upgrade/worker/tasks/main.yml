@@ -1,25 +1,4 @@
 # Upgrade a worker
 ---
-- name: "check status"
-  command:
-  args:
-    argv:
-    - kubectl
-    - get
-    - node
-    - "{{ inventory_hostname }}"
-    - -o
-    - jsonpath={range .status.conditions[:]}{.reason}{"\n"}{end}
-  delegate_to: "{{ chosen_master }}"
-  register: node_status
-
-- fail:
-    msg: "{{ inventory_hostname }} is NotReady"
-  when: "'NodeStatusUnknown' in node_status.stdout_lines"
-
-- name: "Drain"
-  command: "kubectl drain --ignore-daemonsets --delete-local-data --force {{ inventory_hostname }}"
-  delegate_to: "{{ chosen_master }}"
-
 - name: "Uprgade node"
   command: "kubeadm upgrade node"
