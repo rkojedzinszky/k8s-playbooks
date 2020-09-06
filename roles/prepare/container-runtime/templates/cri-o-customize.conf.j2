@@ -5,6 +5,7 @@ version_file = "/var/lib/crio/version"
 cgroup_manager = {{ container_runtime_cgroup_driver | to_json }}
 default_sysctls = {{ container_runtime_default_sysctls | to_json }}
 log_size_max = {{ container_runtime_max_log_size }}
+default_env = {{ container_runtime_default_environment | to_json }}
 
 [crio.runtime.runtimes.runc]
 {% if cri_o_runc_runtime_path.stat.exists %}
