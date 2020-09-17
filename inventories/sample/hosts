@@ -10,6 +10,9 @@ k8s-master
 [worker]
 k8s-node-1
 k8s-node-2
+# For a node you can specify the InternalIP/node-IP to be used with
+# kubernetes_node_ip. This will get passed to kubelet with --node-ip.
+k8s-node-3 kubernetes_node_ip=10.3.4.5
 
 [gluster:children]
 worker

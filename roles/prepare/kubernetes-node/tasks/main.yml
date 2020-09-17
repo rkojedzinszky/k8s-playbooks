@@ -42,15 +42,18 @@
     - "kubelet={{ kubernetes_version }}-00"
     - "kubeadm={{ kubernetes_version }}-00"
     - "kubectl={{ kubernetes_version }}-00"
+  notify: restart kubelet
 
 - name: hold kubernetes packages
   shell: apt-mark hold kubelet kubeadm kubectl
 
-- name: restart kubelet service
-  systemd:
-    daemon_reload: yes
-    name: kubelet
-    state: restarted
+- name: deploy kubelet extra args
+  template:
+    src: default_kubelet.j2
+    dest: /etc/default/kubelet
+  notify: restart kubelet
+
+- meta: flush_handlers
 
 - name: deploy kubernetes sysctls
   template:
