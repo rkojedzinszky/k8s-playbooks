@@ -3,27 +3,32 @@
 
 # Validate configuration, prepare kubernetes node
 - hosts: cluster
+  any_errors_fatal: true
   roles:
   - kubernetes/prepare
   - prepare/kubernetes-node
 
 # Initialize k8s cluster if needed
 - hosts: master
+  any_errors_fatal: true
   roles:
   - kubernetes/control-plane
 
 # Obtain one join command for playbook run
 - hosts: cluster
+  any_errors_fatal: true
   roles:
   - kubernetes/node-join-command
 
 # join masters sequentially
 - hosts: master
+  any_errors_fatal: true
   serial: 1
   roles:
   - kubernetes/node
 
 # join workers in parallel
 - hosts: worker
+  any_errors_fatal: true
   roles:
   - kubernetes/node

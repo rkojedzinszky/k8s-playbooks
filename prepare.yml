@@ -2,13 +2,16 @@
 - import_playbook: os.yml
 
 - hosts: cluster
+  any_errors_fatal: true
   roles:
   - prepare/container-runtime
 
 - hosts: worker
+  any_errors_fatal: true
   roles:
   - prepare/kubernetes-worker-node
 
 - hosts: gluster
+  any_errors_fatal: true
   roles:
   - prepare/gluster-node

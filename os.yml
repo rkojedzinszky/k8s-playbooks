@@ -1,5 +1,6 @@
 ---
 - hosts: cluster
+  any_errors_fatal: true
   roles:
   - assign-ip
   - os
