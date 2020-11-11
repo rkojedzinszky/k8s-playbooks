@@ -2,7 +2,6 @@
 os_setup_cpufreq: False
 cpufreq:
   governor: ondemand
-  tune_sampling_rate: false
 
 #rsyslogd_remote: 192.168.1.1
 
