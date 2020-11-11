@@ -1,30 +1,44 @@
 ---
-- name: deploy daily fstrim script
-  template:
-    src: cron-fstrim.j2
-    dest: /etc/cron.daily/fstrim
-    mode: 0555
-    owner: root
-    group: root
-  when: daily_fstrim_enable
-
-- name: remove daily fstrim script
+- name: remove obsolete fstrim scripts
   file:
-    path: /etc/cron.daily/fstrim
+    path: "{{ item }}"
     state: absent
-  when: not daily_fstrim_enable
+  loop:
+  - /etc/cron.daily/fstrim
+  - /etc/cron.weekly/fstrim
 
-- name: deploy weekly fstrim script
-  template:
-    src: cron-fstrim.j2
-    dest: /etc/cron.weekly/fstrim
-    mode: 0555
-    owner: root
-    group: root
-  when: weekly_fstrim_enable
+- name: enable fstrim timer
+  when: os_fstrim is defined
+  block:
+  - file:
+      path: /etc/systemd/system/fstrim.timer.d
+      state: directory
 
-- name: remove weekly fstrim script
-  file:
-    path: /etc/cron.weekly/fstrim
-    state: absent
-  when: not weekly_fstrim_enable
+  - template:
+      src: fstrim-timer-d-timer-os.conf.j2
+      dest: /etc/systemd/system/fstrim.timer.d/timer-os.conf
+    notify:
+    - reload systemd
+
+  - meta: flush_handlers
+
+  - systemd:
+      name: fstrim.timer
+      state: started
+      enabled: yes
+
+- name: disable fstrim timer
+  when: os_fstrim is not defined
+  block:
+  - file:
+      path: /etc/systemd/system/fstrim.timer.d
+      state: absent
+    notify:
+    - reload systemd
+
+  - meta: flush_handlers
+
+  - systemd:
+      name: fstrim.timer
+      state: stopped
+      enabled: no

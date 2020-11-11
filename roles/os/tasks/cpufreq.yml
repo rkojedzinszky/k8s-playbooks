@@ -3,7 +3,9 @@
   template:
     src: defaults-cpufrequtils.j2
     dest: /etc/default/cpufrequtils
-  notify: restart cpufrequtils
+  notify:
+  - reload systemd
+  - restart cpufrequtils
 
 - name: setup cpufrequtils sampling rate dropin
   when: cpufreq.tune_sampling_rate | default(False) | bool

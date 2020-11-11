@@ -1,0 +1,26 @@
+---
+- when: daily_fstrim_enable is defined
+  block:
+  - fail:
+      msg: "daily_fstrim_enable is deprecated; use os_fstrim=daily"
+    ignore_errors: yes
+
+  - name: set os_fstrim
+    set_fact:
+      os_fstrim: "daily"
+    when: os_fstrim is not defined
+
+- when: weekly_fstrim_enable is defined
+  block:
+  - fail:
+      msg: "weekly_fstrim_enable deprecated; use os_fstrim=weekly"
+    ignore_errors: yes
+
+  - name: set os_fstrim
+    set_fact:
+      os_fstrim: "weekly"
+    when: os_fstrim is not defined
+
+- when: "os_fstrim is defined and os_fstrim not in ('daily', 'weekly')"
+  fail:
+    msg: "Invalid value for os_fstrim: {{ os_fstrim }}"

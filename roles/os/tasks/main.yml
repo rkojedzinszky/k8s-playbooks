@@ -3,6 +3,10 @@
     msg: "Only Debian is supported. Detected: {{ ansible_distribution }}"
   when: ansible_distribution != "Debian"
 
+- import_tasks: checks.yml
+  tags:
+  - checks
+
 - import_tasks: resolv.yml
 
 - name: generate /etc/apt/sources.list

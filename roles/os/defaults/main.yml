@@ -12,8 +12,8 @@ apt:
     key_ids: []
     sources: []
 
-daily_fstrim_enable: false
-weekly_fstrim_enable: false
+# Enable fstrim.service. Possible values: daily|weekly
+#os_fstrim: weekly
 
 # resolver configuration
 #dnsConfig:

@@ -21,8 +21,8 @@
   service: name=munin-node state=restarted
 
 - name: reload systemd
-  shell: "systemctl daemon-reload"
-  listen: restart cpufrequtils
+  systemd:
+    daemon_reload: yes
 
 - name: restart cpufrequtils
   service:
