@@ -1,18 +1,12 @@
 ---
-- name: Install packages needed to access OBS repository
-  apt:
-    name:
-    - apt-transport-https
-    - ca-certificates
-
-- name: Import OBS key
+- name: Import apt.srv.kojedz.in signing key
   apt_key:
-    url: https://build.opensuse.org/projects/devel:kubic:libcontainers:stable/public_key.asc
-    id: 2472D6D0D2F66AF87ABA8DA34D64390375060AA4
+    keyserver: keys.gnupg.net
+    id: 2ADADF37C3C302A7BADABCC10D946CE6DD9F32EB
 
 - name: Deploy cri-o sources.list
   copy:
-    content: "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/Debian_10 ./"
+    content: "deb http://apt.srv.kojedz.in/ {{ ansible_distribution_release }} main"
     dest: /etc/apt/sources.list.d/cri-o.list
   notify: update apt cache
 
