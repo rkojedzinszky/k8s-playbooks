@@ -21,3 +21,6 @@ container_runtime_default_sysctls: []
 
 # Default environment for containers
 container_runtime_default_environment: []
+
+# CRI-O /etc/containers/registries.conf customization
+#container_runtime_crio_containers_registries_conf:
