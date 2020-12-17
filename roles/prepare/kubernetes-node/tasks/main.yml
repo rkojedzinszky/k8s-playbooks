@@ -63,9 +63,6 @@
   tags:
   - sysctl
 
-- import_tasks: iptables-legacy.yml
-  when: ansible_distribution_release == 'buster'
-
 - name: Load modules for IPVS on boot
   template:
     src: ipvs-modules.conf.j2
