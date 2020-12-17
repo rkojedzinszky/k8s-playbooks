@@ -1,5 +1,5 @@
-# Container runtime, can be docker or cri-o
-container_runtime: docker
+# Container runtime, right now only cri-o is supported
+container_runtime: cri-o
 
 # CRI cgroup driver
 container_runtime_cgroup_driver: systemd
@@ -10,11 +10,8 @@ container_runtime_registries: ['docker.io']
 # container runtime - insecure registries
 container_runtime_insecure_registries: []
 
-# maximum docker log size
+# maximum container log size
 container_runtime_max_log_size: 1000000
-
-# maximum number of log files
-docker_max_log_files: 1
 
 # Default sysctls for containers
 container_runtime_default_sysctls: []

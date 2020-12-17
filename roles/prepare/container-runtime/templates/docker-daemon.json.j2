@@ -1,8 +1,0 @@
-{
-	"exec-opts": ["native.cgroupdriver={{ container_runtime_cgroup_driver }}"],
-	"insecure-registries": {{ container_runtime_insecure_registries | to_json }},
-	"log-opts": {
-		"max-size": "{{ container_runtime_max_log_size }}",
-		"max-file": "{{ docker_max_log_files }}"
-	}
-}

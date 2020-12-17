@@ -6,11 +6,6 @@
   systemd:
     daemon_reload: yes
 
-- name: restart docker
-  service:
-    name: docker
-    state: restarted
-
 - name: restart crio
   service:
     name: crio
