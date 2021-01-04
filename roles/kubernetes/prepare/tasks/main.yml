@@ -1,7 +1,7 @@
 ---
 - name: Set supported kubernetes version
   set_fact:
-    supported_kubernetes_version: [1, 19]
+    supported_kubernetes_version: [1, 20]
   run_once: yes
 
 - name: Assign kubernetes_version based on supported kubernetes version
