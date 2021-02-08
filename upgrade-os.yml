@@ -4,6 +4,7 @@
   roles:
   - kubernetes/choose-master
   - assign-ip
+  - prepare/cri-o-version
   - kubernetes/prepare-cni-check
 
 - name: "Upgrade & Reboot nodes"
@@ -11,6 +12,10 @@
   serial: 1
   roles:
   - kubernetes/drain-node
+  - kubernetes/stop-kubelet
+  - prepare/remove-container-runtime
   - upgrade/os
-  - kubernetes/reboot-node
+  - reboot-node
+  - prepare/container-runtime
+  - kubernetes/check-apiserver
   - kubernetes/uncordon-node

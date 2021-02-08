@@ -1,4 +1,16 @@
 ---
+- name: "Ensure CRI directories are absent"
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+  - /var/lib/containers
+  - /var/lib/docker
+  - /var/lib/crio
+  - /etc/crio
+  - /etc/cni
+  - /etc/apt/sources.list.d/cri-o.list
+
 - name: Import apt.srv.kojedz.in signing key
   apt_key:
     keyserver: keys.gnupg.net

@@ -1,4 +1,3 @@
-# Reboot a node
 ---
 - name: "{{ inventory_hostname }} - stop kubelet"
   service:
@@ -18,5 +17,3 @@
   delegate_to: "{{ chosen_master }}"
   register: last_kubeletready_heartbeat
 
-- name: "{{ inventory_hostname }} - reboot"
-  reboot: {}

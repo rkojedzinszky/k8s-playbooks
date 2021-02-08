@@ -11,7 +11,9 @@
   serial: 1
   roles:
   - kubernetes/drain-node
-  - kubernetes/reboot-node
+  - kubernetes/stop-kubelet
+  - reboot-node
+  - kubernetes/check-apiserver
   - kubernetes/uncordon-node
 
 - name: Reboot workers
@@ -19,5 +21,6 @@
   serial: "{{ REBOOT_SERIAL | default(1) }}"
   roles:
   - kubernetes/drain-node
-  - kubernetes/reboot-node
+  - kubernetes/stop-kubelet
+  - reboot-node
   - kubernetes/uncordon-node
