@@ -4,9 +4,6 @@ container_runtime: cri-o
 # CRI cgroup driver
 container_runtime_cgroup_driver: systemd
 
-# container runtime - public registries
-container_runtime_registries: ['docker.io']
-
 # container runtime - insecure registries
 container_runtime_insecure_registries: []
 

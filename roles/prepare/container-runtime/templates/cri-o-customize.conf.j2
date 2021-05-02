@@ -14,5 +14,4 @@ runtime_path = "{{ cri_o_runc_runtime_path.stat.path }}"
 {% endif %}
 
 [crio.image]
-registries = {{ container_runtime_registries | to_json }}
 insecure_registries = {{ container_runtime_insecure_registries | to_json }}

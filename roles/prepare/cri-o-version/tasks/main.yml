@@ -1,5 +1,22 @@
 ---
 - name: Set CRI-O version
   set_fact:
-    cri_o_version: "1.20"
+    cri_o_version: "1.21"
   run_once: yes
+
+- name: Check for deprecated settings
+  fail:
+    msg: |
+      Setting up CRI-O-1.21 and you have a non-empty container_runtime_registries variable.
+      This will break existing installations, as CRI-O-1.21 dropped support for this.
+
+      See https://github.com/cri-o/cri-o/pull/4455
+
+      To handle unqualified image names, you should set
+      container_runtime_crio_containers_registries_conf to contain a line like:
+        unqualified-search-registries = ["docker.io"]
+
+      To pass this check, you must explicitly set container_runtime_registries to empty
+      until a future release.
+
+  when: container_runtime_registries is not defined or container_runtime_registries != ""
