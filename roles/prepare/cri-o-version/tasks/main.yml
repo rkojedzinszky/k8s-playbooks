@@ -19,4 +19,4 @@
       To pass this check, you must explicitly set container_runtime_registries to empty
       until a future release.
 
-  when: container_runtime_registries is not defined or container_runtime_registries != ""
+  when: container_runtime_registries is not defined or container_runtime_registries
