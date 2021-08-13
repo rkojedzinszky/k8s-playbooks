@@ -13,7 +13,7 @@
 
 - name: Import apt.srv.kojedz.in signing key
   apt_key:
-    keyserver: keys.gnupg.net
+    keyserver: keys.openpgp.org
     id: 2ADADF37C3C302A7BADABCC10D946CE6DD9F32EB
 
 - name: Deploy cri-o sources.list
