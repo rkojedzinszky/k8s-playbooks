@@ -41,11 +41,6 @@
   tags:
   - watchdog
 
-- import_tasks: munin.yml
-  when: os_setup_munin
-  tags:
-  - munin
-
 - include_tasks: bind-services.yml
   when: os_bind_services
 

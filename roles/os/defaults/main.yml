@@ -28,7 +28,3 @@ os_setup_watchdog: False
 
 # Bind configured services to `ip`
 os_bind_services: False
-
-# Setup munin-node
-os_setup_munin: False
-os_munin_cidr_allow: 0.0.0.0/0

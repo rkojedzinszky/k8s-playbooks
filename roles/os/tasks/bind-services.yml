@@ -4,11 +4,3 @@
     dest: /etc/ssh/sshd_config
     regexp: ListenAddress
     line: ListenAddress {{ ip }}
-
-- name: bind munin to specified ip
-  when: os_setup_munin
-  lineinfile:
-    dest: /etc/munin/munin-node.conf
-    regexp: ^host
-    line: host {{ ip }}
-  notify: restart munin-node

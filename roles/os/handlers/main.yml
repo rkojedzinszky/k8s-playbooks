@@ -17,9 +17,6 @@
     state: started
   listen: restart watchdogd
 
-- name: restart munin-node
-  service: name=munin-node state=restarted
-
 - name: reload systemd
   systemd:
     daemon_reload: yes
