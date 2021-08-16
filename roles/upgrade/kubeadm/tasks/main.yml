@@ -1,6 +1,6 @@
 ---
 - name: Determine existing kubernetes version
-  shell: "kubeadm config view | awk '/kubernetesVersion/ {print $2}'"
+  shell: "kubectl get cm -o yaml -n kube-system kubeadm-config | awk '/kubernetesVersion/ {print $2}'"
   register: kubeadm_config_output
   run_once: yes
   delegate_to: "{{ chosen_master }}"

@@ -10,9 +10,9 @@
 #  chosen_master has to be a name present in the inventory
 ---
 - name: read kuebadm config
-  command: kubeadm config view
+  command: kubectl get cm -o yaml -n kube-system kubeadm-config
   register: kubeadm_config
-  ignore_errors: true
+  failed_when: kubeadm_config.rc > 1
 
 - name: hash kubeadm config
   set_fact:
