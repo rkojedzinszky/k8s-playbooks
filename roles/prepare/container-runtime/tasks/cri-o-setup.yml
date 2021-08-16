@@ -11,6 +11,10 @@
   - /etc/cni
   - /etc/apt/sources.list.d/cri-o.list
 
+- name: Install gnupg
+  apt:
+    name: gnupg
+
 - name: Import apt.srv.kojedz.in signing key
   apt_key:
     keyserver: "{{ container_runtime_signing_keyserver }}"
