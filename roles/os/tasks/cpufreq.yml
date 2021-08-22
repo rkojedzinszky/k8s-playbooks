@@ -1,4 +1,8 @@
 ---
+- name: install cpufrequtils
+  apt:
+    name: cpufrequtils
+
 - name: setup cpufrequtils
   template:
     src: defaults-cpufrequtils.j2
