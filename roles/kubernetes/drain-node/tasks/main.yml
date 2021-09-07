@@ -1,6 +1,6 @@
 # Drain a node
 ---
-- name: "{{ inventory_hostname }} - check status"
+- name: Ensure node is Ready
   command:
   args:
     argv:
@@ -12,10 +12,7 @@
     - jsonpath={range .status.conditions[:]}{.reason}{"\n"}{end}
   delegate_to: "{{ chosen_master }}"
   register: node_status
-
-- fail:
-    msg: "{{ inventory_hostname }} is NotReady"
-  when: "'NodeStatusUnknown' in node_status.stdout_lines"
+  failed_when: "'NodeStatusUnknown' in node_status.stdout_lines"
 
 - name: "{{ inventory_hostname }} - drain"
   command: "kubectl drain --ignore-daemonsets --delete-local-data --force {{ inventory_hostname }}"
