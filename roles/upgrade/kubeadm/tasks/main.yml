@@ -10,17 +10,20 @@
     current_kubernetes_version: "{{ (kubeadm_config_output.stdout_lines[0] | regex_replace('^v', '')).split('.') }}"
   run_once: yes
 
-- fail:
+- name: Fail on major upgrade request
+  fail:
     msg: "Major upgrade is not supported ({{ current_kubernetes_version }} -> {{ desired_kubernetes_version }})"
   run_once: yes
   when: 'current_kubernetes_version[0] != desired_kubernetes_version[0]'
 
-- fail:
+- name: Fail on not incremental minor upgrade request
+  fail:
     msg: "Minor upgrade is only supported forward in increments of one"
   run_once: yes
   when: 'current_kubernetes_version[1]|int not in (desired_kubernetes_version[1]|int - 1, desired_kubernetes_version[1]|int)'
 
-- fail:
+- name: Fail on downgrade request
+  fail:
     msg: "Patch upgrade is only supported forward"
   run_once: yes
   when: 'current_kubernetes_version[1]|int == desired_kubernetes_version[1]|int and current_kubernetes_version[2]|int > desired_kubernetes_version[2]|int'
