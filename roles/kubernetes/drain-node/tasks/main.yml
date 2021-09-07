@@ -9,10 +9,10 @@
     - node
     - "{{ inventory_hostname }}"
     - -o
-    - jsonpath={range .status.conditions[:]}{.reason}{"\n"}{end}
+    - jsonpath={range .status.conditions[?(.reason == "KubeletReady")]}{.reason}{"\n"}{end}
   delegate_to: "{{ chosen_master }}"
   register: node_status
-  failed_when: "'NodeStatusUnknown' in node_status.stdout_lines"
+  failed_when: "not node_status.stdout_lines"
 
 - name: "{{ inventory_hostname }} - drain"
   command: "kubectl drain --ignore-daemonsets --delete-local-data --force {{ inventory_hostname }}"
