@@ -19,22 +19,14 @@
     kubeadm_config_hash: "{{ kubeadm_config.stdout | hash('sha1') }}"
   when: kubeadm_config.rc == 0
 
-- name: count different kubeadm configs
+- name: Ensure no different kubernetes clusters exist
   run_once: yes
   set_fact:
     kubeadm_configs_count: |-
       {% set configs = dict() %}
       {% for h in groups['master'] %}{% if 'kubeadm_config_hash' in hostvars[h] %}{% set _ = configs.setdefault(hostvars[h].kubeadm_config_hash, True) %}{% endif %}{% endfor %}
       {{ configs.keys() | length }}
-
-- debug:
-    msg: "Count of different kubeadm configs (different k8s clusters): {{ kubeadm_configs_count }}"
-  run_once: yes
-
-- fail:
-    msg: "More than one kubeadm configs (different k8s clusters) found. Cannot handle this."
-  when: "kubeadm_configs_count|int > 1"
-  run_once: yes
+  failed_when: "kubeadm_configs_count|int > 1"
 
 - name: Initialize cluster
   when: "kubeadm_configs_count|int == 0"
