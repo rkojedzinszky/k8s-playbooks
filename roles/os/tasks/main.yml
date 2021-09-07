@@ -1,5 +1,6 @@
 ---
-- fail:
+- name: Check for supported OS
+  fail:
     msg: "Only Debian is supported. Detected: {{ ansible_distribution }}"
   when: ansible_distribution != "Debian"
 
