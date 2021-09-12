@@ -2,9 +2,3 @@
 - name: Install worker specific packages
   apt:
     name: "{{ kubernetes_worker_packages }}"
-
-- name: Setup iscsi defaults parameters
-  lineinfile:
-    path: /etc/iscsi/iscsid.conf
-    regexp: ^node.session.timeo.replacement_timeout.*=
-    line: node.session.timeo.replacement_timeout = -1
