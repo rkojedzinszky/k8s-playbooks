@@ -15,5 +15,5 @@
   failed_when: "not node_status.stdout_lines"
 
 - name: "{{ inventory_hostname }} - drain"
-  command: "kubectl drain --ignore-daemonsets --delete-local-data --force {{ inventory_hostname }}"
+  command: "kubectl drain --ignore-daemonsets --delete-emptydir-data --force {{ inventory_hostname }}"
   delegate_to: "{{ chosen_master }}"
