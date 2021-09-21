@@ -13,7 +13,9 @@
 
 - name: Install gnupg
   apt:
-    name: gnupg
+    name:
+      - gnupg
+      - ca-certificates
 
 - name: Import apt.srv.kojedz.in signing key
   apt_key:
