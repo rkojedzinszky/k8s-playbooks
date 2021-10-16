@@ -10,7 +10,7 @@
   copy:
     content: "{{ file_contents.content | b64decode }}"
     dest: "{{ item.path }}"
-    mode: "{{ item.mode | default(0644) }}"
+    mode: "{{ item.mode | default('0644') }}"
 
 - name: Cleanup variable
   set_fact:
