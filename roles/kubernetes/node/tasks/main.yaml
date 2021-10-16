@@ -35,7 +35,7 @@
         join_command: "{{ join_command }} --control-plane"
 
   - name: Join node
-    command: "{{ join_command }}"
+    command: "{{ join_command }} {{ kubernetes_node_join_extra_args }}"
 
   - import_tasks: private/check-apiserver.yml
 

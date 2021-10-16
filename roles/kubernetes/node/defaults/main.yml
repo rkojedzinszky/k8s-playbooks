@@ -1,0 +1,4 @@
+---
+# Extra args for "kubeadm join".
+# e.g.: --ignore-preflight-errors=Mem
+kubernetes_node_join_extra_args: ""
