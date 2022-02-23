@@ -1,0 +1,26 @@
+---
+- name: check for existing kube-router-kubeconfig
+  command: kubectl -n kube-system get cm kube-router-kubeconfig -o yaml
+  register: get_cm_kube_router_kubeconfig
+  failed_when: get_cm_kube_router_kubeconfig.rc|int > 1
+
+- name: kube-router-kubeconfig
+  when: get_cm_kube_router_kubeconfig.rc|int == 1
+  block:
+    - name: read kube-proxy config
+      command: kubectl -n kube-system get cm kube-proxy -o yaml
+      register: get_cm_kube_proxy
+
+    - name: create kube-router-kubeconfig config
+      set_fact:
+        kube_router_kubeconfig: |
+          {% set config = get_cm_kube_proxy.stdout | from_yaml %}
+          {% set data = config['data'] | from_yaml %}
+          {% set _ = data.pop('config.conf') %}
+          {% set _ = config.update({'data': data, 'metadata': {'name': 'kube-router-kubeconfig', 'namespace': 'kube-system'}}) %}
+          {{ config | to_nice_yaml }}
+
+    - name: install kube-router-kubeconfig
+      command:
+        cmd: kubectl create -f -
+        stdin: "{{ kube_router_kubeconfig }}"

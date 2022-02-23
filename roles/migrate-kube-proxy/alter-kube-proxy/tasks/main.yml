@@ -1,0 +1,14 @@
+---
+- name: check existing kube-proxy daemonset
+  command: kubectl -n kube-system get ds kube-proxy -o yaml
+  register: ds_kube_proxy
+  failed_when: ds_kube_proxy.rc|int > 1
+
+- name: handle existing kube-proxy
+  when: ds_kube_proxy.rc|int == 0 and (ds_kube_proxy.stdout|from_yaml)['spec']['template']['spec']['nodeSelector']['service-proxy'] is not defined
+  block:
+    - name: label all nodes
+      command: "kubectl label --overwrite node {{ groups['cluster'] | join(' ') }} service-proxy=kube-proxy"
+
+    - name: alter kube-proxy daemonset
+      command: kubectl -n kube-system patch ds kube-proxy --patch='{"spec":{"template":{"spec":{"nodeSelector":{"service-proxy":"kube-proxy"}}}}}'

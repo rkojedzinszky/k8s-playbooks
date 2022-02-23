@@ -1,0 +1,15 @@
+---
+- name: Prepare
+  hosts: cluster
+  roles:
+    - kubernetes/choose-master
+    - assign-ip
+    - kubernetes/prepare-cni-check
+
+- name: create kube-router-kubeconfig cm
+  gather_facts: no
+  hosts: master[0]
+  roles:
+    - migrate-kube-proxy/prepare-kube-router-kubeconfig
+    - migrate-kube-proxy/alter-kube-proxy
+    - migrate-kube-proxy/alter-kube-router

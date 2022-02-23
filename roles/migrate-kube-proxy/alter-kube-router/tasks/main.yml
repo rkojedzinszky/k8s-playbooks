@@ -1,0 +1,48 @@
+---
+- name: query existing kube-router ds
+  command: kubectl -n kube-system get ds kube-router -o yaml
+  register: ds_kube_router
+
+- name: update kube-router ds
+  when: "'--run-service-proxy=false' in (ds_kube_router.stdout|from_yaml)['spec']['template']['spec']['containers'][0]['args']"
+  block:
+    - name: set kube-router ds
+      set_fact:
+        kube_router_ds: |
+          {% set config = ds_kube_router.stdout|from_yaml %}
+          {% set args = [] %}
+          {% for a in config['spec']['template']['spec']['containers'][0]['args'] %}
+            {% set _ = args.append('--run-service-proxy=true' if a == '--run-service-proxy=false' else a) %}
+          {% endfor %}
+          {% set _ = args.append('--kubeconfig=/var/lib/kube-router/kubeconfig') %}
+
+          {% set volumeMounts = [] %}
+          {% for v in config['spec']['template']['spec']['containers'][0]['volumeMounts'] %}
+            {% if v['name'] == 'kubeconfig' %}
+              {% set _ = v.update({'mountPath':'/var/lib/kube-router'}) %}
+            {% endif %}
+            {% set _ = volumeMounts.append(v) %}
+          {% endfor %}
+
+          {% set _ = config['spec']['template']['spec']['containers'][0].update({'args': args, 'volumeMounts': volumeMounts}) %}
+
+          {% set volumes = [] %}
+          {% for v in config['spec']['template']['spec']['volumes'] %}
+            {% if v['name'] == 'kubeconfig' %}
+              {% set _ = v.pop('hostPath') %}
+              {% set _ = v.update({'configMap': {'name': 'kube-router-kubeconfig', 'items': [{'key':'kubeconfig.conf', 'path':'kubeconfig'}]}}) %}
+            {% endif %}
+            {% set _ = volumes.append(v) %}
+          {% endfor %}
+
+          {% set _ = config['spec']['template']['spec'].update({'volumes': volumes}) %}
+
+          {% set _ = config['spec']['updateStrategy'].pop('rollingUpdate') %}
+          {% set _ = config['spec']['updateStrategy'].update({'type': 'OnDelete'}) %}
+
+          {{ config | to_nice_yaml(indent=2) }}
+
+    - name: update kube-router daemonset
+      command:
+        cmd: kubectl apply -f -
+        stdin: "{{ kube_router_ds }}"
