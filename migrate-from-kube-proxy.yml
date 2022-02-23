@@ -6,10 +6,92 @@
     - assign-ip
     - kubernetes/prepare-cni-check
 
-- name: create kube-router-kubeconfig cm
+- name: "step #1"
   gather_facts: no
   hosts: master[0]
   roles:
     - migrate-kube-proxy/prepare-kube-router-kubeconfig
     - migrate-kube-proxy/alter-kube-proxy
     - migrate-kube-proxy/alter-kube-router
+
+- name: decice whether node needs migration
+  gather_facts: no
+  hosts: cluster
+  tasks:
+    - name: read node list to be migrated
+      run_once: yes
+      delegate_to: "{{ groups['master']|first }}"
+      command: "kubectl get node -l service-proxy -o jsonpath --template '{.items[*].metadata.name}'"
+      register: get_nodes
+
+    - name: set needs_migration flag
+      set_fact:
+        needs_migration: "{{ inventory_hostname in get_nodes.stdout|split(' ') }}"
+
+    - name: gather running kube-router pods
+      run_once: yes
+      delegate_to: "{{ groups['master']|first }}"
+      command: kubectl -n kube-system get pod -l k8s-app=kube-router -o yaml
+      register: kube_router_pods
+
+    - name: assign kube-router pod
+      when: needs_migration
+      set_fact:
+        kube_router_pod: |
+          {%- for pod in (kube_router_pods.stdout|from_yaml)['items'] %}
+            {%- if pod['spec']['nodeName'] == inventory_hostname %}
+              {{- pod['metadata']['name'] }}
+            {%- endif %}
+          {%- endfor %}
+
+- name: migrate nodes
+  serial: 1
+  gather_facts: no
+  hosts: cluster
+
+  tasks:
+    - name: migrate node
+      when: needs_migration
+      block:
+        - include_role:
+            name: kubernetes/drain-node
+
+        - name: label node to stop kube-proxy
+          delegate_to: "{{ chosen_master }}"
+          command: kubectl label --overwrite node {{ inventory_hostname }} service-proxy=kube-router
+
+        - name: delete old kube-router pod
+          delegate_to: "{{ chosen_master }}"
+          command: kubectl -n kube-system delete pod {{ kube_router_pod }}
+
+        - include_role:
+            name: kubernetes/stop-kubelet
+
+        - include_role:
+            name: reboot-node
+
+        - include_role:
+            name: kubernetes/check-apiserver
+
+        - include_role:
+            name: kubernetes/uncordon-node
+
+        - name: unlabel node
+          delegate_to: "{{ chosen_master }}"
+          command: kubectl label node {{ inventory_hostname }} service-proxy-
+
+- name: remove kube-proxy from cluster
+  gather_facts: no
+  hosts: master[0]
+  tasks:
+    - name: remove kube-proxy daemonset
+      command: kubectl -n kube-system delete ds kube-proxy
+      register: delete_ds_kube_proxy
+      changed_when: delete_ds_kube_proxy.rc|int == 0
+      failed_when: delete_ds_kube_proxy.rc|int > 1
+
+    - name: remove kube-proxy configmap
+      command: kubectl -n kube-system delete cm kube-proxy
+      register: delete_cm_kube_proxy
+      changed_when: delete_cm_kube_proxy.rc|int == 0
+      failed_when: delete_cm_kube_proxy.rc|int > 1
