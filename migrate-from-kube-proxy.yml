@@ -95,3 +95,22 @@
       register: delete_cm_kube_proxy
       changed_when: delete_cm_kube_proxy.rc|int == 0
       failed_when: delete_cm_kube_proxy.rc|int > 1
+
+    - name: re-read existing kube-router ds
+      command: kubectl -n kube-system get ds kube-router -o yaml
+      register: ds_kube_router
+
+    - name: restore kube-router updateStrategy
+      when: "'updateStrategyType' in (ds_kube_router.stdout|from_yaml)['metadata']['annotations']"
+      block:
+        - name: set kube-router ds
+          set_fact:
+            kube_router_ds: |
+              {% set config = ds_kube_router.stdout|from_yaml %}
+              {% set _ = config['spec']['updateStrategy'].update({'type': config['metadata']['annotations'].pop('updateStrategyType')}) %}
+              {{ config|to_nice_yaml(indent=2) }}
+
+        - name: update kube-router daemonset
+          shell:
+            cmd: kubectl apply -f -
+            stdin: "{{ kube_router_ds }}"
