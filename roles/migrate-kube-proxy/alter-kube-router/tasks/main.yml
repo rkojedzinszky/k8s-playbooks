@@ -37,7 +37,7 @@
 
           {% set _ = config['spec']['template']['spec'].update({'volumes': volumes}) %}
 
-          {% set _ = config['spec']['updateStrategy'].pop('rollingUpdate') %}
+          {% set _ = config['metadata']['annotations'].update({'updateStrategyType':config['spec']['updateStrategy']['type']}) %}
           {% set _ = config['spec']['updateStrategy'].update({'type': 'OnDelete'}) %}
 
           {{ config | to_nice_yaml(indent=2) }}
