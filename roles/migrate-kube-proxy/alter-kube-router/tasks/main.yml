@@ -4,7 +4,7 @@
   register: ds_kube_router
 
 - name: update kube-router ds
-  when: "'--run-service-proxy=false' in (ds_kube_router.stdout|from_yaml)['spec']['template']['spec']['containers'][0]['args']"
+  when: "'--run-service-proxy=true' not in (ds_kube_router.stdout|from_yaml)['spec']['template']['spec']['containers'][0]['args']"
   block:
     - name: set kube-router ds
       set_fact:
@@ -14,6 +14,9 @@
           {% for a in config['spec']['template']['spec']['containers'][0]['args'] %}
             {% set _ = args.append('--run-service-proxy=true' if a == '--run-service-proxy=false' else a) %}
           {% endfor %}
+          {% if '--run-service-proxy=true' not in args %}
+            {% set _ = args.append('--run-service-proxy=true') %}
+          {% endif %}
           {% set _ = args.append('--kubeconfig=/var/lib/kube-router/kubeconfig') %}
 
           {% set volumeMounts = [] %}
