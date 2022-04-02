@@ -1,0 +1,36 @@
+# Kubernetes apiserver load-balancer address.
+# If the load-balancer is set up externally, specify the virtual IP address/port
+# here which will forward requests to master nodes.
+# If you want an ucarp+haproxy based load-balancer to be deployed on master
+# nodes, choose a virtual IP address on the same subnet, and enable
+# kubernetes_master_lb_deploy_loadbalancer.
+#kubernetes_master_lb_address: 192.168.111.1:6443
+kubernetes_master_lb_deploy_loadbalancer: false
+
+## ucarp settings
+
+# ucarp vhid
+kubernetes_master_loadbalancer_vhid: 1
+
+# ucarp interface. if not set, will be guessed
+#kubernetes_master_loadbalancer_ucarp_interface:
+
+# ucarp source ip address. if not set, will be guessed
+#kubernetes_master_loadbalancer_ucarp_srcip:
+
+# ucarp password file
+kubernetes_master_loadbalancer_ucarp_password_file: /etc/kubernetes/apiserver-loadbalancer-ucarp.password
+
+# ucarp password file group
+kubernetes_master_loadbalancer_ucarp_password_file_group: apiserver-loadbalancer
+
+## haproxy settings
+
+# haproxy configuration file
+kubernetes_master_loadbalancer_haproxy_cfg_file: /etc/kubernetes/apiserver-loadbalancer-haproxy.cfg
+
+# haproxy bind address, defaults to kubernetes_master_lb_address. For the default
+# to work, add sysctl net.ipv4.ip_nonlocal_bind=1 to node_sysctls.
+# Alternatively, you can bind to other port on wildcard address, in which case you will
+# not need the sysctl mentioned before.
+#kubernetes_master_loadbalancer_haproxy_bind_address: *:16443

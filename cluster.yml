@@ -12,6 +12,8 @@
 - hosts: master
   any_errors_fatal: true
   roles:
+  - kubernetes/apiserver-loadbalancer/prepare
+  - kubernetes/apiserver-loadbalancer/deploy
   - kubernetes/control-plane
 
 # Obtain one join command for playbook run
@@ -26,6 +28,13 @@
   serial: 1
   roles:
   - kubernetes/node
+
+# redeploy apiserver-loadbalancer
+- hosts: master
+  any_errors_fatal: true
+  roles:
+  - kubernetes/apiserver-loadbalancer/prepare
+  - kubernetes/apiserver-loadbalancer/deploy
 
 # join workers in parallel
 - hosts: worker

@@ -8,12 +8,19 @@
   - kubernetes/prepare-cni-check
   - upgrade/kubeadm
 
+# redeploy apiserver-loadbalancer
+- hosts: master
+  any_errors_fatal: true
+  roles:
+  - kubernetes/apiserver-loadbalancer/prepare
+
 - hosts: master
   serial: 1
   gather_facts: no
   any_errors_fatal: true
   roles:
   - kubernetes/drain-node
+  - kubernetes/apiserver-loadbalancer/deploy
   - upgrade/control-plane
   - upgrade/kubelet-kubectl
   - kubernetes/uncordon-node

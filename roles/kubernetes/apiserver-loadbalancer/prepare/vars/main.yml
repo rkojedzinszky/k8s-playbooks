@@ -1,0 +1,2 @@
+---
+kubernetes_pki_ca_crt: /etc/kubernetes/pki/ca.crt

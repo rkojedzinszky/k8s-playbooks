@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    config-hash: "{{ kubernetes_master_loadbalancer_haproxy_cfg_file_stat.stat.checksum }}"
+  labels:
+    component: kube-apiserver-lb-haproxy
+    tier: control-plane
+  name: kube-apiserver-lb-haproxy
+  namespace: kube-system
+spec:
+  containers:
+  - image: {{ kube_apiserver_lb_haproxy_image }}
+    name: haproxy
+    securityContext:
+      capabilities:
+        add:
+        - NET_BIND_SERVICE
+        - SYS_CHROOT
+      runAsNonRoot: true
+    resources:
+      requests:
+        cpu: 100m
+    volumeMounts:
+    - mountPath: "/etc/haproxy/haproxy.cfg"
+      name: haproxy-config
+{% if kubernetes_pki_ca_crt_stat.stat.exists %}
+    - mountPath: "{{ kubernetes_pki_ca_crt_stat.stat.path }}"
+      name: apiserver-ca-crt
+{% endif %}
+  volumes:
+    - name: haproxy-config
+      hostPath:
+        path: "{{ kubernetes_master_loadbalancer_haproxy_cfg_file_stat.stat.path }}"
+{% if kubernetes_pki_ca_crt_stat.stat.exists %}
+    - name: apiserver-ca-crt
+      hostPath:
+        path: "{{ kubernetes_pki_ca_crt_stat.stat.path }}"
+{% endif %}
+  hostNetwork: true

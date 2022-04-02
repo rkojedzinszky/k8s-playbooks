@@ -1,0 +1,12 @@
+---
+- block:
+    - include_tasks: ucarp.yml
+    - include_tasks: haproxy.yml
+
+    - name: export variables for later use
+      set_fact:
+        kubernetes_master_lb_deploy_loadbalancer: "{{ kubernetes_master_lb_deploy_loadbalancer }}"
+        kubernetes_master_loadbalancer_ucarp_password_file: "{{ kubernetes_master_loadbalancer_ucarp_password_file }}"
+        kubernetes_master_loadbalancer_vhid: "{{ kubernetes_master_loadbalancer_vhid }}"
+
+  when: kubernetes_master_lb_address is defined and kubernetes_master_lb_deploy_loadbalancer

@@ -1,0 +1,15 @@
+---
+- name: "Check for kubernetes apiserver ca.crt"
+  stat:
+    path: "{{ kubernetes_pki_ca_crt }}"
+  register: kubernetes_pki_ca_crt_stat
+
+- name: "Deploy haproxy configuration"
+  template:
+    src: kube-apiserver-lb-haproxy-cfg.j2
+    dest: "{{ kubernetes_master_loadbalancer_haproxy_cfg_file }}"
+
+- name: "Check haproxy configuration"
+  stat:
+    path: "{{ kubernetes_master_loadbalancer_haproxy_cfg_file }}"
+  register: kubernetes_master_loadbalancer_haproxy_cfg_file_stat

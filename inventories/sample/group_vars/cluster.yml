@@ -7,6 +7,8 @@
 
 # See roles/prepare/kubernetes-node/defaults/main.yml
 
+# See roles/kubernetes/apiserver-loadbalancer/prepare/defaults/main.yml
+
 # See roles/kubernetes/control-plane/defaults/main.yml
 
 # See roles/kubernetes/uncordon-node/defaults/main.yml

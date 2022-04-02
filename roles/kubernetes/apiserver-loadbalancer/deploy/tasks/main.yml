@@ -1,0 +1,12 @@
+---
+- block:
+    - name: pre-pull loadbalancer images
+      command: crictl pull {{ item }}
+      loop:
+        - "{{ kube_apiserver_lb_ucarp_image }}"
+        - "{{ kube_apiserver_lb_haproxy_image }}"
+
+    - include_tasks: ucarp.yml
+    - include_tasks: haproxy.yml
+
+  when: kubernetes_master_lb_address is defined and kubernetes_master_lb_deploy_loadbalancer

@@ -1,0 +1,28 @@
+global
+    chroot /var/lib/haproxy
+    log stdout format raw local0
+    user haproxy
+    group haproxy
+    maxconn 16384
+    maxsslconn 0
+    master-worker
+
+defaults
+    log     global
+    mode    tcp
+    option  dontlognull
+    timeout connect 1s
+    timeout client 24h
+    timeout server 24h
+    option srvtcpka
+    option clitcpka
+    backlog 10
+
+listen apiserver
+    bind {{ kubernetes_master_loadbalancer_haproxy_bind_address | default(kubernetes_master_lb_address) }}
+    default-server inter 2s
+    option httpchk GET /healthz
+{% for h in ansible_play_hosts_all %}
+    server {{ h }} {{ kubernetes_node_ip | default(ip) }}:6443 check check-ssl verify {% if kubernetes_pki_ca_crt_stat.stat.exists %}required ca-file {{ kubernetes_pki_ca_crt }}{% else %}none{% endif %}
+
+{% endfor %}

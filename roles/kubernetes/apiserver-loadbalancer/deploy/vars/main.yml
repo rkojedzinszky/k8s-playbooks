@@ -1,0 +1,5 @@
+# ucarp image
+kube_apiserver_lb_ucarp_image: ghcr.io/kubernetize/ucarp:1.1.0
+
+# haproxy image
+kube_apiserver_lb_haproxy_image: ghcr.io/kubernetize/haproxy

@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    config-hash: "{{ kubernetes_master_loadbalancer_ucarp_password_hash }}"
+  labels:
+    component: kube-apiserver-lb-ucarp
+    tier: control-plane
+  name: kube-apiserver-lb-ucarp
+  namespace: kube-system
+spec:
+  containers:
+  - image: {{ kube_apiserver_lb_ucarp_image }}
+    name: ucarp
+    securityContext:
+      capabilities:
+        add:
+        - NET_RAW
+        - NET_ADMIN
+      runAsNonRoot: true
+      runAsUser: 65534
+      runAsGroup: {{ kubernetes_master_loadbalancer_ucarp_password_file_group_info.gid }}
+    env:
+    - name: UCARP_ADDR
+      value: "{{ kubernetes_master_lb_address | split(':') | first }}"
+    - name: UCARP_VHID
+      value: "{{ kubernetes_master_loadbalancer_vhid }}"
+{% if kubernetes_master_loadbalancer_ucarp_srcip is defined %}
+    - name: UCARP_SRCIP
+      value: "{{ kubernetes_master_loadbalancer_ucarp_srcip }}"
+{% endif %}
+{% if kubernetes_master_loadbalancer_ucarp_interface is defined %}
+    - name: UCARP_INTERFACE
+      value: "{{ kubernetes_master_loadbalancer_ucarp_interface }}"
+{% endif %}
+    - name: UCARP_PASS_FILE
+      value: /etc/ucarp.password
+    resources:
+      requests:
+        cpu: 50m
+    volumeMounts:
+    - mountPath: "/etc/ucarp.password"
+      name: ucarp-password-file
+  volumes:
+    - name: ucarp-password-file
+      hostPath:
+        path: "{{ kubernetes_master_loadbalancer_ucarp_password_file }}"
+  hostNetwork: true

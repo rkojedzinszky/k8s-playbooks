@@ -1,0 +1,5 @@
+---
+- name: "Deploy ucarp pod manifest"
+  template:
+    src: kube-apiserver-lb-ucarp.yaml.j2
+    dest: /etc/kubernetes/manifests/kube-apiserver-lb-ucarp.yaml

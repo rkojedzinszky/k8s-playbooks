@@ -1,0 +1,62 @@
+---
+- name: "Ensure group for ucarp password file exists"
+  group:
+    name: "{{ kubernetes_master_loadbalancer_ucarp_password_file_group }}"
+    system: yes
+  register: kubernetes_master_loadbalancer_ucarp_password_file_group_info
+
+- name: "Check if ucarp password file exists"
+  stat:
+    path: "{{ kubernetes_master_loadbalancer_ucarp_password_file }}"
+  register: kubernetes_master_loadbalancer_ucarp_password_file_stat
+
+- name: "Count different ucarp password files"
+  run_once: true
+  delegate_to: localhost
+  set_fact:
+    kubernetes_master_loadbalancer_ucarp_password_file_hosts: |-
+      {% set cfgs = dict() %}
+      {%- for h in ansible_play_hosts_all %}
+        {%- if hostvars[h].kubernetes_master_loadbalancer_ucarp_password_file_stat.stat.exists %}
+          {%- set _ = cfgs.setdefault(hostvars[h].kubernetes_master_loadbalancer_ucarp_password_file_stat.stat.checksum, h) %}
+        {%- endif %}
+      {%- endfor %}
+      {{- cfgs.values() }}
+  failed_when: kubernetes_master_loadbalancer_ucarp_password_file_hosts|length > 1
+
+- name: "Generate ucarp password"
+  run_once: true
+  delegate_to: localhost
+  when: kubernetes_master_loadbalancer_ucarp_password_file_hosts|length == 0
+  set_fact:
+    kubernetes_master_loadbalancer_ucarp_password: "{{ lookup('password', '/dev/null chars=ascii_lowercase,digits length=8') }}"
+
+- name: "Read existing ucarp password"
+  run_once: true
+  delegate_to: "{{ kubernetes_master_loadbalancer_ucarp_password_file_hosts | first }}"
+  when: kubernetes_master_loadbalancer_ucarp_password_file_hosts|length == 1
+  slurp:
+    src: "{{ kubernetes_master_loadbalancer_ucarp_password_file }}"
+  register: kubernetes_master_loadbalancer_ucarp_password_file_contents
+
+- name: "Parse existing ucarp password"
+  run_once: true
+  delegate_to: "{{ kubernetes_master_loadbalancer_ucarp_password_file_hosts | first }}"
+  when: kubernetes_master_loadbalancer_ucarp_password_file_hosts|length == 1
+  set_fact:
+    kubernetes_master_loadbalancer_ucarp_password: "{{ kubernetes_master_loadbalancer_ucarp_password_file_contents.content | b64decode }}"
+
+- name: "Deploy ucarp password file"
+  copy:
+    content: "{{ kubernetes_master_loadbalancer_ucarp_password }}"
+    dest: "{{ kubernetes_master_loadbalancer_ucarp_password_file }}"
+    group: "{{ kubernetes_master_loadbalancer_ucarp_password_file_group_info.name }}"
+    mode: "640"
+
+- name: "Forget ucarp password"
+  run_once: true
+  delegate_to: localhost
+  set_fact:
+    kubernetes_master_loadbalancer_ucarp_password: ""
+    kubernetes_master_loadbalancer_ucarp_password_file_contents: ""
+    kubernetes_master_loadbalancer_ucarp_password_hash: "{{ kubernetes_master_loadbalancer_ucarp_password | hash('sha1') }}"
