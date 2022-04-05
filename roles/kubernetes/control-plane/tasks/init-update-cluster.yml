@@ -9,7 +9,7 @@
 # Notes on the variables:
 #  chosen_master has to be a name present in the inventory
 ---
-- name: read kuebadm config
+- name: read kubeadm config
   command: kubectl get cm -o yaml -n kube-system kubeadm-config
   register: kubeadm_config
   failed_when: kubeadm_config.rc > 1
