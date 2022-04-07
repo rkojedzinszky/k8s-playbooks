@@ -3,3 +3,4 @@
   template:
     src: kube-apiserver-lb-haproxy.yaml.j2
     dest: /etc/kubernetes/manifests/kube-apiserver-lb-haproxy.yaml
+  notify: restart kubelet
