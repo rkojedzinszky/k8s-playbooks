@@ -12,7 +12,6 @@ sources:
 
 essential_packages:
 - less
-- atop
 - net-tools
 - irqbalance
 
