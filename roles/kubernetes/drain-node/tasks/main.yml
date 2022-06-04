@@ -14,6 +14,12 @@
   register: node_status
   failed_when: "not node_status.stdout_lines"
 
-- name: "{{ inventory_hostname }} - drain"
+- name: "Drain node"
   command: "kubectl drain --ignore-daemonsets --delete-emptydir-data --force {{ inventory_hostname }}"
   delegate_to: "{{ chosen_master }}"
+  when: not kubernetes_drain_node_localhost_kubectl_context
+
+- name: "Drain node from localhost"
+  command: "kubectl --context={{ kubernetes_drain_node_localhost_kubectl_context }} drain --ignore-daemonsets --delete-emptydir-data --force {{ inventory_hostname }}"
+  delegate_to: localhost
+  when: kubernetes_drain_node_localhost_kubectl_context

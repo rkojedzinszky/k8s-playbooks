@@ -1,0 +1,2 @@
+# set this to issue drain command using local kubectl
+kubernetes_drain_node_localhost_kubectl_context:
