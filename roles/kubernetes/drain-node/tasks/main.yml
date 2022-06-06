@@ -23,3 +23,6 @@
   command: "kubectl --context={{ kubernetes_drain_node_localhost_kubectl_context }} drain --ignore-daemonsets --delete-emptydir-data --force {{ inventory_hostname }}"
   delegate_to: localhost
   when: kubernetes_drain_node_localhost_kubectl_context
+  register: node_drain_from_localhost_result
+  retries: 1
+  until: node_drain_from_localhost_result.rc == 0
