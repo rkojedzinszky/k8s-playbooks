@@ -18,7 +18,7 @@
   - upgrade/kubelet-kubectl
   - kubernetes/uncordon-node
 
-- hosts: worker
+- hosts: worker,!master
   serial: 1
   gather_facts: no
   any_errors_fatal: true
