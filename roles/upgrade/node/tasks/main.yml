@@ -1,0 +1,12 @@
+---
+- name: Upgrade control plane
+  when: inventory_hostname == groups['master'][0]
+  command: kubeadm upgrade apply --yes v{{ kubernetes_version }}
+
+- name: Upgrade node
+  when: inventory_hostname != groups['master'][0]
+  command: kubeadm upgrade node
+
+- name: Update kubectl config
+  command: "cp -af /etc/kubernetes/admin.conf /root/.kube/config"
+  when: "'master' in group_names"

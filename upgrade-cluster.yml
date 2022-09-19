@@ -8,22 +8,12 @@
   - kubernetes/prepare-cni-check
   - upgrade/kubeadm
 
-- hosts: master
+- hosts: master,worker
   serial: 1
   gather_facts: no
   any_errors_fatal: true
   roles:
   - kubernetes/drain-node
-  - upgrade/control-plane
-  - upgrade/kubelet-kubectl
-  - kubernetes/uncordon-node
-
-- hosts: worker,!master
-  serial: 1
-  gather_facts: no
-  any_errors_fatal: true
-  roles:
-  - kubernetes/drain-node
-  - upgrade/worker
+  - upgrade/node
   - upgrade/kubelet-kubectl
   - kubernetes/uncordon-node

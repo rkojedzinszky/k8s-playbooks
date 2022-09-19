@@ -1,4 +1,0 @@
-# Upgrade a worker
----
-- name: "Uprgade node"
-  command: "kubeadm upgrade node"
