@@ -2,13 +2,9 @@ apiServer:
   timeoutForControlPlane: 10m0s
   extraArgs:
     authorization-mode: Node,RBAC
-    feature-gates: TTLAfterFinished=true
 apiVersion: kubeadm.k8s.io/v1beta2
 certificatesDir: /etc/kubernetes/pki
 clusterName: kubernetes
-controllerManager:
-  extraArgs:
-    feature-gates: TTLAfterFinished=true
 dns:
   type: CoreDNS
 etcd:
@@ -21,9 +17,6 @@ networking:
   dnsDomain: cluster.local
   serviceSubnet: {{ kubernetes_service_subnet }}
   podSubnet: {{ kubernetes_pod_subnet }}
-scheduler:
-  extraArgs:
-    feature-gates: TTLAfterFinished=true
 {% if kubernetes_master_lb_address is defined %}
 controlPlaneEndpoint: {{ kubernetes_master_lb_address }}
 {% endif %}
