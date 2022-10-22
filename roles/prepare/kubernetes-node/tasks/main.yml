@@ -1,15 +1,6 @@
 ---
 - apt: name=curl,tcpdump
 
-- name: Setup systemd default accounting
-  replace:
-    path: /etc/systemd/system.conf
-    regexp: '^.*(DefaultCPUAccounting|DefaultMemoryAccounting|DefaultTasksAccounting).*'
-    replace: '\1=yes'
-  notify: reexec systemd
-
-- meta: flush_handlers
-
 - name: disable swap permanently
   lineinfile:
     dest: /etc/fstab

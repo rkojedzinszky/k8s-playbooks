@@ -2,9 +2,6 @@
 - name: update apt cache
   apt: update_cache=Yes
 
-- name: reexec systemd
-  command: systemctl daemon-reexec
-
 - name: apply kubernetes sysctls
   command: sysctl -p /etc/sysctl.d/kubernetes-node.conf
 
