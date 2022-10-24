@@ -1,3 +1,4 @@
+---
 apiServer:
   timeoutForControlPlane: 10m0s
   extraArgs:
@@ -93,3 +94,10 @@ staticPodPath: /etc/kubernetes/manifests
 streamingConnectionIdleTimeout: 4h0m0s
 syncFrequency: 1m0s
 volumeStatsAggPeriod: 1m0s
+---
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: InitConfiguration
+localAPIEndpoint:
+{% if kubernetes_node_ip is defined %}
+  advertiseAddress: {{ kubernetes_node_ip }}
+{% endif %}
