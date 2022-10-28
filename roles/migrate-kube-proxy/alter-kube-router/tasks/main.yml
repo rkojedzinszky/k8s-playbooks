@@ -6,46 +6,49 @@
 - name: update kube-router ds
   when: "'--run-service-proxy=true' not in (ds_kube_router.stdout|from_yaml)['spec']['template']['spec']['containers'][0]['args']"
   block:
-    - name: set kube-router ds
+    - name: Fetch upstream kube-router ds manifest
+      uri:
+        url: https://raw.githubusercontent.com/cloudnativelabs/kube-router/master/daemonset/kubeadm-kuberouter.yaml
+        return_content: true
+      register: upstream_ds_kube_router
+
+    - name: Parse upstream kube-router ds
+      set_fact:
+        upstream_ds_kube_router: |
+          {%- for p in upstream_ds_kube_router.content | split("---\n") | map('from_yaml') %}
+            {%- if p['kind'] == 'DaemonSet' %}
+              {{- p -}}
+            {%- endif %}
+          {%- endfor -%}
+
+    - name: Update kube-router ds from upstream
       set_fact:
         kube_router_ds: |
-          {% set config = ds_kube_router.stdout|from_yaml %}
-          {% set args = [] %}
-          {% for a in config['spec']['template']['spec']['containers'][0]['args'] %}
-            {% set _ = args.append('--run-service-proxy=true' if a == '--run-service-proxy=false' else a) %}
-          {% endfor %}
-          {% if '--run-service-proxy=true' not in args %}
-            {% set _ = args.append('--run-service-proxy=true') %}
-          {% endif %}
-          {% set _ = args.append('--kubeconfig=/var/lib/kube-router/kubeconfig') %}
+          {%- set config = ds_kube_router.stdout|from_yaml -%}
+          {%- set args = [] %}
+          {%- for a in config['spec']['template']['spec']['containers'][0]['args'] %}
+            {%- set _ = args.append('--run-service-proxy=true' if a == '--run-service-proxy=false' else a) %}
+          {%- endfor %}
+          {%- if '--run-service-proxy=true' not in args %}
+            {%- set _ = args.append('--run-service-proxy=true') %}
+          {%- endif %}
+          {%- set _ = args.append('--kubeconfig=/var/lib/kube-router/kubeconfig') %}
 
-          {% set volumeMounts = [] %}
-          {% for v in config['spec']['template']['spec']['containers'][0]['volumeMounts'] %}
-            {% if v['name'] == 'kubeconfig' %}
-              {% set _ = v.update({'mountPath':'/var/lib/kube-router'}) %}
-            {% endif %}
-            {% set _ = volumeMounts.append(v) %}
-          {% endfor %}
+          {%- set image = config['spec']['template']['spec']['containers'][0]['image'] %}
+          {%- set _ = config['spec']['template']['spec'].update({'containers': upstream_ds_kube_router['spec']['template']['spec']['containers']}) %}
+          {%- set _ = config['spec']['template']['spec']['containers'][0].update({'args': args, 'image': image}) %}
+          {%- set _ = config['spec']['template']['spec']['containers'][0].pop('imagePullPolicy', None) %}
+          {%- set _ = config['spec']['template']['spec'].update({'initContainers': upstream_ds_kube_router['spec']['template']['spec']['initContainers']}) %}
+          {%- set _ = config['spec']['template']['spec']['initContainers'][0].update({'image': image}) %}
+          {%- set _ = config['spec']['template']['spec']['initContainers'][0].pop('imagePullPolicy', None) %}
+          {%- set _ = config['spec']['template']['spec'].update({'volumes': upstream_ds_kube_router['spec']['template']['spec']['volumes']}) %}
 
-          {% set _ = config['spec']['template']['spec']['containers'][0].update({'args': args, 'volumeMounts': volumeMounts}) %}
+          {%- set _ = config['metadata']['annotations'].update({'updateStrategyType':config['spec']['updateStrategy']['type']}) %}
+          {%- set _ = config['spec']['updateStrategy'].update({'type': 'OnDelete'}) %}
 
-          {% set volumes = [] %}
-          {% for v in config['spec']['template']['spec']['volumes'] %}
-            {% if v['name'] == 'kubeconfig' %}
-              {% set _ = v.pop('hostPath') %}
-              {% set _ = v.update({'configMap': {'name': 'kube-router-kubeconfig', 'items': [{'key':'kubeconfig.conf', 'path':'kubeconfig'}]}}) %}
-            {% endif %}
-            {% set _ = volumes.append(v) %}
-          {% endfor %}
-
-          {% set _ = config['spec']['template']['spec'].update({'volumes': volumes}) %}
-
-          {% set _ = config['metadata']['annotations'].update({'updateStrategyType':config['spec']['updateStrategy']['type']}) %}
-          {% set _ = config['spec']['updateStrategy'].update({'type': 'OnDelete'}) %}
-
-          {{ config | to_nice_yaml(indent=2) }}
+          {{- config }}
 
     - name: update kube-router daemonset
       command:
         cmd: kubectl apply -f -
-        stdin: "{{ kube_router_ds }}"
+        stdin: "{{ kube_router_ds | to_yaml }}"
