@@ -41,7 +41,13 @@
           {%- set _ = config['spec']['template']['spec'].update({'initContainers': upstream_ds_kube_router['spec']['template']['spec']['initContainers']}) %}
           {%- set _ = config['spec']['template']['spec']['initContainers'][0].update({'image': image}) %}
           {%- set _ = config['spec']['template']['spec']['initContainers'][0].pop('imagePullPolicy', None) %}
-          {%- set _ = config['spec']['template']['spec'].update({'volumes': upstream_ds_kube_router['spec']['template']['spec']['volumes']}) %}
+          {%- set volumes = upstream_ds_kube_router['spec']['template']['spec']['volumes'] -%}
+          {%- for v in volumes -%}
+            {%- if v['configMap']['name'] is defined and v['configMap']['name'] == 'kube-proxy' -%}
+              {%- set _ = v['configMap'].update({'name': 'kube-router-kubeconfig'}) -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {%- set _ = config['spec']['template']['spec'].update({'volumes': volumes}) %}
 
           {%- set _ = config['metadata']['annotations'].update({'updateStrategyType':config['spec']['updateStrategy']['type']}) %}
           {%- set _ = config['spec']['updateStrategy'].update({'type': 'OnDelete'}) %}
