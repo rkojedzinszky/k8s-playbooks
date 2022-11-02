@@ -8,7 +8,7 @@
   block:
     - name: Fetch upstream kube-router ds manifest
       uri:
-        url: https://raw.githubusercontent.com/cloudnativelabs/kube-router/master/daemonset/kubeadm-kuberouter.yaml
+        url: https://raw.githubusercontent.com/cloudnativelabs/kube-router/master/daemonset/kubeadm-kuberouter-all-features.yaml
         return_content: true
       register: upstream_ds_kube_router
 
