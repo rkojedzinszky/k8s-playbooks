@@ -10,11 +10,18 @@
 - name: disable active swap
   command: swapoff -a
 
-- name: import google apt key
-  apt_key:
-    url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+- name: Create /etc/apt/keyrings
+  file:
+    path: /etc/apt/keyrings
+    state: directory
 
-- name: deploy kubernetes sources.list
+- name: Download the Google Cloud public signing key
+  uri:
+    url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+    dest: /etc/apt/keyrings/kubernetes-archive-keyring.gpg
+    status_code: [200, 304]
+
+- name: Add the Kubernetes apt repository
   copy:
     src: kubernetes.list
     dest: /etc/apt/sources.list.d/
