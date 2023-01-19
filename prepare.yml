@@ -4,15 +4,10 @@
 - hosts: cluster
   any_errors_fatal: true
   roles:
-  - prepare/cri-o-version
-  - prepare/container-runtime
+    - prepare/cri-o-version
+    - prepare/container-runtime
 
 - hosts: worker
   any_errors_fatal: true
   roles:
-  - prepare/kubernetes-worker-node
-
-- hosts: gluster
-  any_errors_fatal: true
-  roles:
-  - prepare/gluster-node
+    - prepare/kubernetes-worker-node
