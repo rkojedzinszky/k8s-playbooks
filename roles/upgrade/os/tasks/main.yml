@@ -6,8 +6,6 @@
 
 - name: Cleanup apt
   command: apt-get clean
-  args:
-    warn: False
 
 - name: Remove dangling initrd.img files
   shell: |-

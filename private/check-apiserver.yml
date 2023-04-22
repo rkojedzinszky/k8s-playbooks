@@ -3,18 +3,17 @@
   when: "'master' in group_names"
   command:
   args:
-    warn: False
     argv:
-    - curl
-    - --max-time
-    - "1"
-    - -s
-    - --cacert
-    - /etc/kubernetes/pki/ca.crt
-    - "https://{{ ip }}:6443/healthz"
+      - curl
+      - --max-time
+      - "1"
+      - -s
+      - --cacert
+      - /etc/kubernetes/pki/ca.crt
+      - "https://{{ ip }}:6443/healthz"
   register: result
   until: "'ok' == result.stdout"
   retries: 120
   delay: 5
   tags:
-  - health-check
+    - health-check
