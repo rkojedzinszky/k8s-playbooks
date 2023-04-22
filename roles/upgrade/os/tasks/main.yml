@@ -9,10 +9,16 @@
 
 - name: Remove dangling initrd.img files
   shell: |-
-    cd /boot && \
-    set -- initrd.img-* \
-    test -f "$1" &&
-    for i in initrd.img-* ; do
+    cd /boot
+    set -- initrd.img-*
+    test -f "$1" && \
+    for i ; do
       v=${i#initrd.img-}
       test -f vmlinuz-${v} || rm $i
-    done
+    done || :
+    set -- uinitrd.img-*
+    test -f "$1" && \
+    for i ; do
+      v=${i#uinitrd.img-}
+      test -f vmlinuz-${v} || rm $i
+    done || :
