@@ -28,7 +28,7 @@
   - kubernetes/node
 
 # join workers in parallel
-- hosts: worker
+- hosts: worker,!master
   any_errors_fatal: true
   roles:
   - kubernetes/node
