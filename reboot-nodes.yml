@@ -6,7 +6,8 @@
   - assign-ip
   - kubernetes/prepare-cni-check
 
-- name: Reboot masters
+- name: Reboot nodes
+  gather_facts: false
   hosts: cluster
   serial: 1
   roles:
