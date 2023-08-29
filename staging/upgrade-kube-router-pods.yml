@@ -1,0 +1,49 @@
+---
+- name: Prepare
+  hosts: cluster
+  roles:
+    - kubernetes/choose-master
+    - assign-ip
+    - kubernetes/prepare-cni-check
+
+- name: Collect kube-router pods
+  gather_facts: false
+  hosts: cluster
+  tasks:
+    - name: gather running kube-router pods
+      run_once: true
+      delegate_to: "{{ groups['master']|first }}"
+      command: kubectl -n kube-system get pod -l k8s-app=kube-router -o yaml
+      register: kube_router_pods
+
+    - name: assign kube-router pod
+      set_fact:
+        kube_router_pod: |
+          {%- for pod in (kube_router_pods.stdout|from_yaml)['items'] %}
+            {%- if pod['spec']['nodeName'] == inventory_hostname %}
+              {{- pod['metadata']['name'] }}
+            {%- endif %}
+          {%- endfor %}
+
+- name: Reboot nodes
+  gather_facts: false
+  hosts: cluster
+  serial: 1
+  tasks:
+  - import_role:
+      name: kubernetes/drain-node
+  - import_role:
+      name: kubernetes/stop-kubelet
+  - name: Delete kube-router pod
+    delegate_to: "{{ chosen_master }}"
+    command: kubectl -n kube-system delete pod {{ kube_router_pod }} --wait=false
+  - name: Remove kube-router cni config
+    file:
+      path: /etc/cni/net.d/10-kuberouter.conflist
+      state: absent
+  - import_role:
+      name: reboot-node
+  - import_role:
+      name: kubernetes/check-apiserver
+  - import_role:
+      name: kubernetes/uncordon-node
