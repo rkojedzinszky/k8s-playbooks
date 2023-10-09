@@ -16,5 +16,6 @@
   - upgrade/os
   - upgrade/container-runtime
   - reboot-node
+  - upgrade/cleanup
   - kubernetes/check-apiserver
   - kubernetes/uncordon-node
