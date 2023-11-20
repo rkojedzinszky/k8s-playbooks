@@ -4,7 +4,9 @@
 
 - name: Upgrade kubectl/kubelet
   apt:
-    name: kubectl={{ kubernetes_version }}-00,kubelet={{ kubernetes_version }}-00
+    name:
+    - "kubelet={{ kubernetes_version }}-1.1"
+    - "kubectl={{ kubernetes_version }}-1.1"
 
 - name: Hold kubectl/kubelet
   command: apt-mark hold kubectl kubelet

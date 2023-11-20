@@ -4,6 +4,7 @@
   any_errors_fatal: true
   roles:
   - kubernetes/prepare
+  - prepare/kubernetes-repository
   - kubernetes/choose-master
   - kubernetes/prepare-cni-check
   - upgrade/kubeadm

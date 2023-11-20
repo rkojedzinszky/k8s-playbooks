@@ -6,6 +6,7 @@
   any_errors_fatal: true
   roles:
   - kubernetes/prepare
+  - prepare/kubernetes-repository
   - prepare/kubernetes-node
 
 # Initialize k8s cluster if needed

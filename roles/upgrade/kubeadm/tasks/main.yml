@@ -35,8 +35,9 @@
 
   - name: Upgrade kubeadm
     apt:
-      name: kubeadm={{ kubernetes_version }}-00
-      update_cache: yes
+      name:
+      - "kubeadm={{ kubernetes_version }}-1.1"
+      update_cache: true
 
   - name: Hold kubeadm
     command: apt-mark hold kubeadm

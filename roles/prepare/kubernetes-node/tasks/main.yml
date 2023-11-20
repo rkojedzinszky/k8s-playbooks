@@ -10,31 +10,12 @@
 - name: disable active swap
   command: swapoff -a
 
-- name: Create /etc/apt/keyrings
-  file:
-    path: /etc/apt/keyrings
-    state: directory
-
-- name: Download the Google Cloud public signing key
-  uri:
-    url: https://dl.k8s.io/apt/doc/apt-key.gpg
-    dest: /etc/apt/keyrings/kubernetes-archive-keyring.gpg
-    status_code: [200, 304]
-
-- name: Add the Kubernetes apt repository
-  copy:
-    src: kubernetes.list
-    dest: /etc/apt/sources.list.d/
-  notify: update apt cache
-
-- meta: flush_handlers
-
 - name: install kubernetes packages
   apt:
     name:
-    - "kubelet={{ kubernetes_version }}-00"
-    - "kubeadm={{ kubernetes_version }}-00"
-    - "kubectl={{ kubernetes_version }}-00"
+    - "kubelet={{ kubernetes_version }}-1.1"
+    - "kubeadm={{ kubernetes_version }}-1.1"
+    - "kubectl={{ kubernetes_version }}-1.1"
   notify: restart kubelet
 
 - name: hold kubernetes packages
