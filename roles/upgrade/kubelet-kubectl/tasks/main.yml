@@ -10,3 +10,8 @@
 
 - name: Hold kubectl/kubelet
   command: apt-mark hold kubectl kubelet
+
+- name: Ensure kubelet is running
+  systemd:
+    name: kubelet
+    state: started
