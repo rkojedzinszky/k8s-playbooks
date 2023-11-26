@@ -25,3 +25,8 @@ container_runtime_default_environment: []
 # Enable default internal seccomp profile when profile is empty
 # Sets crio.runtime.seccomp_use_default_when_empty
 crio_runtime_seccomp_use_default_when_empty: False
+
+# /etc/containers/policy.json content
+container_runtime_containers_policy:
+  default:
+    - type: insecureAcceptAnything

@@ -11,6 +11,16 @@
     path: /usr/lib/cri-o-runc/sbin/runc
   register: cri_o_runc_runtime_path
 
+- name: Ensure /etc/containers exists
+  file:
+    path: /etc/containers
+    state: directory
+
+- name: Deploy /etc/containers/policy.json
+  copy:
+    content: "{{ container_runtime_containers_policy | to_json }}"
+    dest: /etc/containers/policy.json
+
 - name: Ensure crio configuration drop-in directory exists
   file:
     path: /etc/crio/crio.conf.d
