@@ -1,0 +1,23 @@
+---
+- name: Remove docker and crio
+  shell: "apt-get remove --purge --autoremove --yes --allow-change-held-packages docker.* cri-o-.* conmon.* containers.*"
+  ignore_errors: yes
+
+- name: Reboot
+  reboot: {}
+
+- name: "Remove CRI directories"
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /var/lib/containers/cache
+    - /var/lib/containers/storage
+    - /var/lib/docker
+    - /var/lib/crio
+    - /etc/crio
+    - /etc/cni
+    - /etc/apt/sources.list.d/cri-o.list
+    - /var/lib/cni
+    - /var/lib/kubelet/pods
+  when: reset_container_runtime_cleanup

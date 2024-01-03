@@ -1,0 +1,28 @@
+---
+- name: Prepare reboots
+  hosts: cluster
+  roles:
+    - prepare/cri-o-version
+    - kubernetes/choose-master
+    - assign-ip
+    - kubernetes/prepare-cni-check
+
+- name: Reboot masters
+  hosts: master
+  serial: 1
+  roles:
+    - kubernetes/drain-node
+    - kubernetes/stop-kubelet
+    - prepare/reset-container-runtime
+    - prepare/container-runtime
+    - kubernetes/uncordon-node
+
+- name: Reboot workers
+  hosts: worker,!master
+  serial: "{{ REBOOT_SERIAL | default(1) }}"
+  roles:
+    - kubernetes/drain-node
+    - kubernetes/stop-kubelet
+    - prepare/reset-container-runtime
+    - prepare/container-runtime
+    - kubernetes/uncordon-node

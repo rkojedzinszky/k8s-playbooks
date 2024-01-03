@@ -1,0 +1,3 @@
+---
+# whether to cleanup all directories belonging to container runtimes or not
+reset_container_runtime_cleanup: False
