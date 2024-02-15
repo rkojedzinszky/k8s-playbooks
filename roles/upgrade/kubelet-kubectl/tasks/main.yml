@@ -7,6 +7,8 @@
     name:
     - "kubelet={{ kubernetes_version }}-1.1"
     - "kubectl={{ kubernetes_version }}-1.1"
+  notify:
+    - kubelet upgraded
 
 - name: Hold kubectl/kubelet
   command: apt-mark hold kubectl kubelet
@@ -15,3 +17,6 @@
   systemd:
     name: kubelet
     state: started
+
+- name: Flush handlers
+  meta: flush_handlers
