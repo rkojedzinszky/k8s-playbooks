@@ -5,8 +5,8 @@
 - name: Upgrade kubectl/kubelet
   apt:
     name:
-    - "kubelet={{ kubernetes_version }}-1.1"
-    - "kubectl={{ kubernetes_version }}-1.1"
+    - "kubelet={{ kubernetes_version }}-*"
+    - "kubectl={{ kubernetes_version }}-*"
   notify:
     - kubelet upgraded
 

@@ -36,7 +36,7 @@
   - name: Upgrade kubeadm
     apt:
       name:
-      - "kubeadm={{ kubernetes_version }}-1.1"
+      - "kubeadm={{ kubernetes_version }}-*"
       update_cache: true
 
   - name: Hold kubeadm
