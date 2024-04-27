@@ -1,9 +1,6 @@
 # Container runtime, right now only cri-o is supported
 container_runtime: cri-o
 
-# container runtime repo keyserver
-container_runtime_signing_keyserver: keys.openpgp.org
-
 # CRI cgroup driver
 container_runtime_cgroup_driver: systemd
 

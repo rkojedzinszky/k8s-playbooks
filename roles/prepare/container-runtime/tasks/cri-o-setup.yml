@@ -11,21 +11,96 @@
   - /etc/cni
   - /etc/apt/sources.list.d/cri-o.list
 
-- name: Install gnupg
-  apt:
-    name:
-      - gnupg
-      - ca-certificates
-
-- name: Import apt.srv.kojedz.in signing key
-  apt_key:
-    keyserver: "{{ container_runtime_signing_keyserver }}"
-    id: 2ADADF37C3C302A7BADABCC10D946CE6DD9F32EB
-
-- name: Deploy cri-o sources.list
+- name: Deploy APT cri-o.sources
   copy:
-    content: "deb http://apt.srv.kojedz.in/ {{ ansible_distribution_release }} main"
-    dest: /etc/apt/sources.list.d/cri-o.list
+    content: |
+      Types: deb
+      URIs: http://apt.srv.kojedz.in/
+      Suites: {{ ansible_distribution_release }}
+      Components: main
+      Signed-By:
+        -----BEGIN PGP PUBLIC KEY BLOCK-----
+        .
+        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
+        rQDl/n7H
+        =Cego
+        -----END PGP PUBLIC KEY BLOCK-----
+
+    dest: /etc/apt/sources.list.d/cri-o.sources
   notify: update apt cache
 
 - meta: flush_handlers

@@ -1,4 +1,8 @@
 ---
+- name: Install ca-certificates
+  apt:
+    name: ca-certificates
+
 - name: Create /etc/apt/keyrings
   file:
     path: /etc/apt/keyrings
