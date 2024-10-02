@@ -1,6 +1,7 @@
 ---
-- hosts: cluster
-  gather_facts: no
+- name: Prepare for upgrade
+  hosts: cluster
+  gather_facts: false
   any_errors_fatal: true
   roles:
   - kubernetes/prepare
@@ -9,12 +10,27 @@
   - kubernetes/prepare-cni-check
   - upgrade/kubeadm
 
-- hosts: master,worker
+- name: Upgrade kubernetes master nodes
+  hosts: master
   serial: 1
-  gather_facts: no
+  gather_facts: false
+  any_errors_fatal: true
+  roles:
+  - upgrade/node
+
+- name: Upgrade kubernetes worker nodes
+  hosts: worker,!master
+  gather_facts: false
+  any_errors_fatal: true
+  roles:
+  - upgrade/node
+
+- name: Upgrade kubelet and kubectl on nodes
+  hosts: master,worker
+  serial: 1
+  gather_facts: false
   any_errors_fatal: true
   roles:
   - kubernetes/drain-node
-  - upgrade/node
   - upgrade/kubelet-kubectl
   - kubernetes/uncordon-node
