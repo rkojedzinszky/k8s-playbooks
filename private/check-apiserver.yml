@@ -1,8 +1,7 @@
 ---
 - name: "{{ inventory_hostname }} - wait until apiserver becomes healthy"
   when: "'master' in group_names"
-  command:
-  args:
+  ansible.builtin.command:
     argv:
       - curl
       - --max-time

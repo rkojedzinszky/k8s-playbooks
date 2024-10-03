@@ -1,8 +1,7 @@
 # Drain a node
 ---
 - name: Ensure node is Ready
-  command:
-  args:
+  ansible.builtin.command:
     argv:
     - kubectl
     - get
