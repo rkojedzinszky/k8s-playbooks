@@ -17,8 +17,8 @@
     - prepare/container-runtime
     - kubernetes/uncordon-node
 
-- name: Reboot workers
-  hosts: worker,!master
+- name: Reboot non-masters
+  hosts: cluster,!master
   serial: "{{ REBOOT_SERIAL | default(1) }}"
   roles:
     - kubernetes/drain-node

@@ -8,7 +8,7 @@
   - kubernetes/prepare-cni-check
 
 - name: "Upgrade & Reboot nodes"
-  hosts: master,worker
+  hosts: cluster
   serial: 1
   roles:
   - kubernetes/drain-node

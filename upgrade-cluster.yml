@@ -10,7 +10,7 @@
   - kubernetes/prepare-cni-check
   - upgrade/kubeadm
 
-- name: Upgrade kubernetes master nodes
+- name: Upgrade master kubernetes nodes
   hosts: master
   serial: 1
   gather_facts: false
@@ -18,15 +18,15 @@
   roles:
   - upgrade/node
 
-- name: Upgrade kubernetes worker nodes
-  hosts: worker,!master
+- name: Upgrade non-master kubernetes nodes
+  hosts: cluster,!master
   gather_facts: false
   any_errors_fatal: true
   roles:
   - upgrade/node
 
 - name: Upgrade kubelet and kubectl on nodes
-  hosts: master,worker
+  hosts: cluster
   serial: 1
   gather_facts: false
   any_errors_fatal: true

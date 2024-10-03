@@ -28,8 +28,8 @@
   roles:
   - kubernetes/node
 
-# join workers in parallel
-- hosts: worker,!master
+# join non-masters in parallel
+- hosts: cluster,!master
   any_errors_fatal: true
   roles:
   - kubernetes/node
