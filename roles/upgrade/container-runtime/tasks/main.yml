@@ -1,5 +1,0 @@
----
-- name: Upgrade cri-o
-  apt:
-    name:
-      - cri-o-{{ cri_o_version }}

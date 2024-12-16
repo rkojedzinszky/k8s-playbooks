@@ -107,8 +107,7 @@
 
 - name: install cri-o
   apt:
-    name:
-    - cri-o-{{ cri_o_version }}
+    name: "{{ cri_o_package_name }}"
   notify: reload systemd
 
 - meta: flush_handlers

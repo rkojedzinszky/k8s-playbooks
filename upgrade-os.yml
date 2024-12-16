@@ -13,9 +13,10 @@
   roles:
   - kubernetes/drain-node
   - kubernetes/stop-kubelet
+  - prepare/remove-container-runtime
   - upgrade/os
-  - upgrade/container-runtime
   - reboot-node
+  - prepare/container-runtime
   - upgrade/cleanup
   - kubernetes/check-apiserver
   - kubernetes/uncordon-node

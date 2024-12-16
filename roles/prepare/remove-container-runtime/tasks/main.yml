@@ -1,0 +1,10 @@
+---
+- name: "Fetch installed packages"
+  package_facts: {}
+
+- name: Remove obsolete versions of cri-o
+  ansible.builtin.apt:
+    name: "{{ ansible_facts.packages.keys() | select('search', '^cri-o-') | difference([cri_o_package_name]) }}"
+    state: absent
+    purge: yes
+  when: "ansible_facts.packages.keys() | select('search', '^cri-o-') | difference([cri_o_package_name])"
