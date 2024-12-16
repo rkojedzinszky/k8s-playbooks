@@ -4,8 +4,8 @@
     path: "{{ item }}"
     state: absent
   loop:
-  - /var/lib/containers
-  - /var/lib/docker
+  - /var/lib/containers/cache
+  - /var/lib/containers/storage
   - /var/lib/crio
   - /etc/crio
   - /etc/cni
