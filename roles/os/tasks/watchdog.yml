@@ -31,22 +31,20 @@
     creates: '{{ watchdog_ssh_keyfile }}'
 
 - name: read watchdog ssh public key
-  shell: 'cat {{ watchdog_ssh_keyfile }}.pub'
+  ansible.builtin.slurp:
+    src: '{{ watchdog_ssh_keyfile }}.pub'
   register: watchdog_ssh_pub
-
-- name: register public key
-  set_fact:
-    watchdog_ssh_pub: '{{ watchdog_ssh_pub.stdout_lines[0] }}'
 
 - name: ensure watchdog ssh key is in authorized_keys
   lineinfile:
     dest: /root/.ssh/authorized_keys
     regexp: '{{ watchdog_ssh_comment }}'
-    line: 'command="/bin/true" {{ watchdog_ssh_pub }}'
+    line: 'command="/bin/true" {{ watchdog_ssh_pub["content"] | b64decode }}'
 
 - name: read host ssh keys
   shell: 'ssh-keyscan {{ inventory_hostname }} | grep -v ^#'
   register: ssh_keyscan
+  changed_when: False
 
 - name: 'add host public keys to known_hosts'
   lineinfile:
