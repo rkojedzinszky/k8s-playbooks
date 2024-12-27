@@ -2,6 +2,7 @@
 - name: Check whether cri-o is installed
   shell: "dpkg -l | grep -E '^ii[[:space:]]+cri-o-' | wc -l"
   register: cri_o_count
+  changed_when: False
 
 - include_tasks: cri-o-setup.yml
   when: "cri_o_count.stdout|int == 0"
