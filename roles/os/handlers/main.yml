@@ -2,9 +2,6 @@
 - name: update apt cache
   apt: update_cache=Yes
 
-- name: reload systemd
-  shell: systemctl daemon-reexec
-
 - name: stop watchdogd
   service:
     name: watchdog
