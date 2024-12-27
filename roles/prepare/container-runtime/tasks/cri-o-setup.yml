@@ -108,9 +108,6 @@
 - name: install cri-o
   apt:
     name: "{{ cri_o_package_name }}"
-  notify: reload systemd
-
-- meta: flush_handlers
 
 - name: clear cri-o shipped cni configuration
   file:
