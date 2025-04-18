@@ -3,15 +3,14 @@
   apt:
     name: ca-certificates
 
-- name: Create /etc/apt/keyrings
+- name: Remove legacy files
   file:
-    path: /etc/apt/keyrings
-    state: directory
-
-- name: Remove legacy Google Cloud public signing key
-  file:
-    path: /etc/apt/keyrings/kubernetes-archive-keyring.gpg
+    path: "{{ item }}"
     state: absent
+  loop:
+  - /etc/apt/keyrings/kubernetes-archive-keyring.gpg
+  - /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+  - /etc/apt/sources.list.d/kubernetes.list
 
 - name: Download the public signing key for the Kubernetes package repositories
   ansible.builtin.uri:
@@ -21,25 +20,26 @@
   delegate_to: localhost
   run_once: true
 
-- name: Dearmor the public signing key for the Kubernetes package repositories
+# TODO: switch to deb822_repository
+- name: Prepare key to be embedded in debian sources
   command:
-    cmd: gpg --dearmor
+    cmd: sed -e "s/^$/./" -e "s/^/ /"
     stdin: "{{ kubernetes_public_signing_key_armored.content }}"
-  register: kubernetes_public_signing_key_dearmored
+  register: kubernetes_public_signing_key_embedded
   delegate_to: localhost
   run_once: true
   changed_when: false
 
-- name: Deploy the public signing key for the Kubernetes package repositories
-  copy:
-    content: "{{ kubernetes_public_signing_key_dearmored.stdout }}"
-    dest: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-
-- name: Register Kubernetes apt repository
+# TODO: switch to deb822_repository
+- name: Deploy Kubernetes sources
   copy:
     content: |
-      deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v{{ supported_kubernetes_version | join('.') }}/deb/ /
-    dest: /etc/apt/sources.list.d/kubernetes.list
+      Types: deb
+      URIs: https://pkgs.k8s.io/core:/stable:/v{{ supported_kubernetes_version | join('.') }}/deb/
+      Suites: /
+      Signed-By:
+      {{ kubernetes_public_signing_key_embedded.stdout }}
+    dest: /etc/apt/sources.list.d/kubernetes.sources
   notify: update apt cache
 
 - meta: flush_handlers
