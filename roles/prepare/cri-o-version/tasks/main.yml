@@ -1,7 +1,7 @@
 ---
 - name: Set CRI-O version
   set_fact:
-    cri_o_package_name: "cri-o-1.32"
+    cri_o_package_name: "cri-o-1.33"
   run_once: yes
 
 - name: Check for deprecated settings
