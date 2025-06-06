@@ -12,6 +12,7 @@
   delegate_to: "{{ chosen_master }}"
   register: node_status
   failed_when: "not node_status.stdout_lines"
+  retries: 1
 
 - name: "Drain node"
   command: "kubectl {% if kubernetes_drain_node_localhost_kubectl_context %}--context={{ kubernetes_drain_node_localhost_kubectl_context }}{% endif %} drain --ignore-daemonsets --delete-emptydir-data --force {{ inventory_hostname }}"

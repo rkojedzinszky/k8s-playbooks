@@ -28,6 +28,7 @@
 - name: "{{ inventory_hostname }} - uncordon"
   command: "kubectl uncordon {{ inventory_hostname }}"
   delegate_to: "{{ chosen_master }}"
+  retries: 1
 
 - name: Sleep additional grace time
   wait_for:
