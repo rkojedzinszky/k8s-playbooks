@@ -1,5 +1,11 @@
+# Two groups must exist:
+#  cluster - contains _ALL_ nodes, even masters
+#  master  - contains only master nodes
+#
+#  Therefore an example inventory might look like:
 [cluster:children]
 master
+#infra
 worker
 
 # All hosts might have an ip= argument. If defined, some daemons will bind only to this address.
@@ -7,9 +13,13 @@ worker
 [master]
 k8s-master
 
+#[infra]
+#infra-1
+
 [worker]
 k8s-node-1
 k8s-node-2
 # For a node you can specify the InternalIP/node-IP to be used with
 # kubernetes_node_ip. This will get passed to kubelet with --node-ip.
 k8s-node-3 kubernetes_node_ip=10.3.4.5
+
