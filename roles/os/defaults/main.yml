@@ -5,12 +5,6 @@ cpufreq:
 
 #rsyslogd_remote: 192.168.1.1
 
-apt:
-  ext:
-    keyserver: ""
-    key_ids: []
-    sources: []
-
 # Enable fstrim.service. Possible values: daily|weekly
 #os_fstrim: weekly
 

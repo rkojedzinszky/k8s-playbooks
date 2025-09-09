@@ -1,12 +1,11 @@
 ---
-- name: import gpg keys
-  apt_key:
-    keyserver: "{{ apt.ext.keyserver }}"
-    id: "{{ item }}"
-  loop: "{{ apt.ext.key_ids }}"
+- name: fail if 'apt' variable is defined (deprecated)
+  ansible.builtin.fail:
+    msg: "The 'apt' variable is no longer supported"
+  when: apt is defined
 
-- name: generate additional sources.list
-  template:
-    src: ext.sources.list.j2
-    dest: /etc/apt/sources.list.d/ext.sources.list
+- name: remove unsupported ext.sources.list file
+  ansible.builtin.file:
+    path: /etc/apt/sources.list.d/ext.sources.list
+    state: absent
   notify: update apt cache
