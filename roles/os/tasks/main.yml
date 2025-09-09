@@ -10,17 +10,22 @@
 
 - import_tasks: resolv.yml
 
-- name: generate /etc/apt/sources.list
-  template:
-    src: sources.list.j2
-    dest: /etc/apt/sources.list
+- name: remove deprecated /etc/apt/sources.list
+  ansible.builtin.file:
+    path: /etc/apt/sources.list
+    state: absent
   notify: update apt cache
-  tags:
-  - sources-list
+
+- name: generate /etc/apt/sources.list.d/debian.sources
+  ansible.builtin.template:
+    src: debian.sources.j2
+    dest: /etc/apt/sources.list.d/debian.sources
+    mode: '0644'
+    owner: root
+    group: root
+  notify: update apt cache
 
 - import_tasks: apt-ext-lists.yml
-  tags:
-  - sources-list
 
 - meta: flush_handlers
 
