@@ -1,7 +1,7 @@
 ---
 - name: Select master to work on
-  set_fact:
+  ansible.builtin.set_fact:
     chosen_master: "{{ groups['master'] | random }}"
 
-- debug:
+- ansible.builtin.debug:
     msg: "Chosen master is {{ chosen_master }}"

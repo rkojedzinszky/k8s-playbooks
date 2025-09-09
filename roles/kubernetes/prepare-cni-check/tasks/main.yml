@@ -1,6 +1,6 @@
 ---
 - name: Gather own podCIDR
-  command:
+  ansible.builtin.command:
   args:
     argv:
     - kubectl
@@ -13,11 +13,11 @@
   delegate_to: "{{ chosen_master }}"
 
 - name: Parse own podCIDR
-  set_fact:
+  ansible.builtin.set_fact:
     ownpodcidr: "{{ ownpodcidr.stdout }}"
 
 - name: Collect full cluster podCIDR assignments
-  command:
+  ansible.builtin.command:
   args:
     argv:
     - kubectl
@@ -30,10 +30,10 @@
   delegate_to: "{{ chosen_master }}"
 
 - name: Parse full cluster podCIDR assignments
-  set_fact:
+  ansible.builtin.set_fact:
     allpodcidrs: "{{ allpodcidrs.stdout.split(' ') }}"
   run_once: yes
 
 - name: Set podCIDR list to check after reboot
-  set_fact:
+  ansible.builtin.set_fact:
     otherpodcidrs: "{{ allpodcidrs | difference([ownpodcidr]) }}"

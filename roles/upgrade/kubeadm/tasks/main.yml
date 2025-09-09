@@ -1,29 +1,29 @@
 ---
 - name: Determine existing kubernetes version
-  shell: "kubectl get cm -o yaml -n kube-system kubeadm-config | awk '/kubernetesVersion/ {print $2}'"
+  ansible.builtin.shell: "kubectl get cm -o yaml -n kube-system kubeadm-config | awk '/kubernetesVersion/ {print $2}'"
   register: kubeadm_config_output
   run_once: yes
   delegate_to: "{{ chosen_master }}"
 
 - name: Parse kubernetes version string
-  set_fact:
+  ansible.builtin.set_fact:
     current_kubernetes_version: "{{ (kubeadm_config_output.stdout_lines[0] | regex_replace('^v', '')).split('.') }}"
   run_once: yes
 
 - name: Fail on major upgrade request
-  fail:
+  ansible.builtin.fail:
     msg: "Major upgrade is not supported ({{ current_kubernetes_version }} -> {{ desired_kubernetes_version }})"
   run_once: yes
   when: 'current_kubernetes_version[0] != desired_kubernetes_version[0]'
 
 - name: Fail on not incremental minor upgrade request
-  fail:
+  ansible.builtin.fail:
     msg: "Minor upgrade is only supported forward in increments of one"
   run_once: yes
   when: 'current_kubernetes_version[1]|int not in (desired_kubernetes_version[1]|int - 1, desired_kubernetes_version[1]|int)'
 
 - name: Fail on downgrade request
-  fail:
+  ansible.builtin.fail:
     msg: "Patch upgrade is only supported forward"
   run_once: yes
   when: 'current_kubernetes_version[1]|int == desired_kubernetes_version[1]|int and current_kubernetes_version[2]|int > desired_kubernetes_version[2]|int'
@@ -31,13 +31,13 @@
 - name: Upgrade kubeadm
   block:
   - name: Unhold kubeadm
-    command: apt-mark unhold kubeadm
+    ansible.builtin.command: apt-mark unhold kubeadm
 
   - name: Upgrade kubeadm
-    apt:
+    ansible.builtin.apt:
       name:
       - "kubeadm={{ kubernetes_version }}-*"
       update_cache: true
 
   - name: Hold kubeadm
-    command: apt-mark hold kubeadm
+    ansible.builtin.command: apt-mark hold kubeadm

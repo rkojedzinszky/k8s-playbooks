@@ -1,14 +1,14 @@
 ---
 - name: Check for supported OS
-  fail:
+  ansible.builtin.fail:
     msg: "Only Debian is supported. Detected: {{ ansible_distribution }}"
   when: ansible_distribution != "Debian"
 
-- import_tasks: checks.yml
+- ansible.builtin.import_tasks: checks.yml
   tags:
   - checks
 
-- import_tasks: resolv.yml
+- ansible.builtin.import_tasks: resolv.yml
 
 - name: remove deprecated /etc/apt/sources.list
   ansible.builtin.file:
@@ -25,40 +25,40 @@
     group: root
   notify: update apt cache
 
-- import_tasks: apt-ext-lists.yml
+- ansible.builtin.import_tasks: apt-ext-lists.yml
 
-- meta: flush_handlers
+- ansible.builtin.meta: flush_handlers
 
 - name: install some essential packages
-  apt:
+  ansible.builtin.apt:
     name: "{{ essential_packages }}"
 
 - name: disable shell history
-  file:
+  ansible.builtin.file:
     path: /root/.bash_history
     state: link
     src: /dev/null
     force: yes
 
-- import_tasks: modules.yml
+- ansible.builtin.import_tasks: modules.yml
 
-- import_tasks: watchdog.yml
+- ansible.builtin.import_tasks: watchdog.yml
   when: os_setup_watchdog
   tags:
   - watchdog
 
-- include_tasks: bind-services.yml
+- ansible.builtin.include_tasks: bind-services.yml
   when: os_bind_services
 
-- import_tasks: cpufreq.yml
+- ansible.builtin.import_tasks: cpufreq.yml
   when: os_setup_cpufreq
   tags:
   - cpufreq
 
-- import_tasks: rsyslogd.yml
+- ansible.builtin.import_tasks: rsyslogd.yml
   tags:
   - syslog
 
-- import_tasks: fstrim.yml
+- ansible.builtin.import_tasks: fstrim.yml
   tags:
   - fstrim

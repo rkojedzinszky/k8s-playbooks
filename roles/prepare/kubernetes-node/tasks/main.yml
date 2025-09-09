@@ -1,17 +1,17 @@
 ---
-- apt: name=curl,tcpdump
+- ansible.builtin.apt: name=curl,tcpdump
 
 - name: disable swap permanently
-  lineinfile:
+  ansible.builtin.lineinfile:
     dest: /etc/fstab
     regexp: swap
     state: absent
 
 - name: disable active swap
-  command: swapoff -a
+  ansible.builtin.command: swapoff -a
 
 - name: install kubernetes packages
-  apt:
+  ansible.builtin.apt:
     name:
     - "kubelet={{ kubernetes_version }}-*"
     - "kubeadm={{ kubernetes_version }}-*"
@@ -19,18 +19,18 @@
   notify: restart kubelet
 
 - name: hold kubernetes packages
-  shell: apt-mark hold kubelet kubeadm kubectl
+  ansible.builtin.shell: apt-mark hold kubelet kubeadm kubectl
 
 - name: deploy kubelet extra args
-  template:
+  ansible.builtin.template:
     src: default_kubelet.j2
     dest: /etc/default/kubelet
   notify: restart kubelet
 
-- meta: flush_handlers
+- ansible.builtin.meta: flush_handlers
 
 - name: deploy kubernetes sysctls
-  template:
+  ansible.builtin.template:
     src: kubernetes-node.conf.j2
     dest: /etc/sysctl.d/kubernetes-node.conf
   notify: apply kubernetes sysctls
@@ -38,10 +38,10 @@
   - sysctl
 
 - name: Load modules for IPVS on boot
-  template:
+  ansible.builtin.template:
     src: ipvs-modules.conf.j2
     dest: /etc/modules-load.d/ipvs-modules.conf
 
 - name: Load modules for IPVS
-  shell: "modprobe {{ item }} || true"
+  ansible.builtin.shell: "modprobe {{ item }} || true"
   loop: "{{ kuberneter_node_ipvs_modules }}"

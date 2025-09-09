@@ -1,11 +1,11 @@
 ---
 - name: Set CRI-O version
-  set_fact:
+  ansible.builtin.set_fact:
     cri_o_package_name: "cri-o-1.33"
   run_once: yes
 
 - name: Check for deprecated settings
-  fail:
+  ansible.builtin.fail:
     msg: |
       Setting up {{ cri_o_package_name }} and you have a non-empty container_runtime_registries variable.
       This will break existing installations, as CRI-O-1.21 dropped support for this.

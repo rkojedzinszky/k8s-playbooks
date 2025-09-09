@@ -1,13 +1,13 @@
 ---
 - name: Remove docker and crio
-  shell: "apt-get remove --purge --autoremove --yes --allow-change-held-packages docker.* cri-o-.* conmon.* containers.*"
+  ansible.builtin.shell: "apt-get remove --purge --autoremove --yes --allow-change-held-packages docker.* cri-o-.* conmon.* containers.*"
   ignore_errors: yes
 
 - name: Reboot
-  reboot: {}
+  ansible.builtin.reboot: {}
 
 - name: "Remove CRI directories"
-  file:
+  ansible.builtin.file:
     path: "{{ item }}"
     state: absent
   loop:

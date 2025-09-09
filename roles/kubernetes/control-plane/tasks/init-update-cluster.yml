@@ -10,18 +10,18 @@
 #  chosen_master has to be a name present in the inventory
 ---
 - name: read kubeadm config
-  command: kubectl get cm -o yaml -n kube-system kubeadm-config
+  ansible.builtin.command: kubectl get cm -o yaml -n kube-system kubeadm-config
   register: kubeadm_config
   failed_when: kubeadm_config.rc > 1
 
 - name: hash kubeadm config
-  set_fact:
+  ansible.builtin.set_fact:
     kubeadm_config_hash: "{{ kubeadm_config.stdout | hash('sha1') }}"
   when: kubeadm_config.rc == 0
 
 - name: Ensure no different kubernetes clusters exist
   run_once: yes
-  set_fact:
+  ansible.builtin.set_fact:
     kubeadm_configs_count: |-
       {% set configs = dict() %}
       {% for h in groups['master'] %}{% if 'kubeadm_config_hash' in hostvars[h] %}{% set _ = configs.setdefault(hostvars[h].kubeadm_config_hash, True) %}{% endif %}{% endfor %}
@@ -32,9 +32,9 @@
   when: "kubeadm_configs_count|int == 0"
   run_once: yes
   block:
-  - include_tasks: init-cluster.yml
+  - ansible.builtin.include_tasks: init-cluster.yml
   - name: Select master to work on later
-    set_fact:
+    ansible.builtin.set_fact:
       chosen_master: "{{ inventory_hostname }}"
 
 - name: Choose one from existing masters
@@ -42,7 +42,7 @@
   block:
   - name: Select master to work on later
     run_once: yes
-    set_fact:
+    ansible.builtin.set_fact:
       chosen_master: |-
         {% set hosts = [] %}
         {% for h in groups['master'] %}{% if 'kubeadm_config_hash' in hostvars[h] %}{% set _ = hosts.append(h) %}{% endif %}{% endfor %}

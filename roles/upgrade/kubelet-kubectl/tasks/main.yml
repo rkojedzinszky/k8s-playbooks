@@ -1,9 +1,9 @@
 ---
 - name: Unhold kubectl/kubelet
-  command: apt-mark unhold kubectl kubelet
+  ansible.builtin.command: apt-mark unhold kubectl kubelet
 
 - name: Upgrade kubectl/kubelet
-  apt:
+  ansible.builtin.apt:
     name:
     - "kubelet={{ kubernetes_version }}-*"
     - "kubectl={{ kubernetes_version }}-*"
@@ -11,12 +11,12 @@
     - kubelet upgraded
 
 - name: Hold kubectl/kubelet
-  command: apt-mark hold kubectl kubelet
+  ansible.builtin.command: apt-mark hold kubectl kubelet
 
 - name: Ensure kubelet is running
-  systemd:
+  ansible.builtin.systemd:
     name: kubelet
     state: started
 
 - name: Flush handlers
-  meta: flush_handlers
+  ansible.builtin.meta: flush_handlers

@@ -1,32 +1,32 @@
 ---
 - name: disable systemd watchdog
-  lineinfile:
+  ansible.builtin.lineinfile:
     dest: /etc/systemd/system.conf
     regexp: RuntimeWatchdogSec
     line: '#RuntimeWatchdogSec=0'
   notify: reload systemd
 
-- meta: flush_handlers
+- ansible.builtin.meta: flush_handlers
 
 - name: install watchdog package
-  apt: name=watchdog
+  ansible.builtin.apt: name=watchdog
 
 - name: enable watchdog to use hardware
-  lineinfile:
+  ansible.builtin.lineinfile:
     dest: /etc/watchdog.conf
     regexp: watchdog-device
     line: watchdog-device = /dev/watchdog
   notify: restart watchdogd
 
 - name: set watchdog interval
-  lineinfile:
+  ansible.builtin.lineinfile:
     dest: /etc/watchdog.conf
     regexp: interval
     line: 'interval = {{ watchdog_interval }}'
   notify: restart watchdogd
 
 - name: generate ssh key for watchdog
-  command: 'ssh-keygen -t ecdsa -b 256 -C "{{ watchdog_ssh_comment }}" -N "" -f {{ watchdog_ssh_keyfile }}'
+  ansible.builtin.command: 'ssh-keygen -t ecdsa -b 256 -C "{{ watchdog_ssh_comment }}" -N "" -f {{ watchdog_ssh_keyfile }}'
   args:
     creates: '{{ watchdog_ssh_keyfile }}'
 
@@ -36,18 +36,18 @@
   register: watchdog_ssh_pub
 
 - name: ensure watchdog ssh key is in authorized_keys
-  lineinfile:
+  ansible.builtin.lineinfile:
     dest: /root/.ssh/authorized_keys
     regexp: '{{ watchdog_ssh_comment }}'
     line: 'command="/bin/true" {{ watchdog_ssh_pub["content"] | b64decode }}'
 
 - name: read host ssh keys
-  shell: 'ssh-keyscan {{ inventory_hostname }} | grep -v ^#'
+  ansible.builtin.shell: 'ssh-keyscan {{ inventory_hostname }} | grep -v ^#'
   register: ssh_keyscan
   changed_when: False
 
 - name: 'add host public keys to known_hosts'
-  lineinfile:
+  ansible.builtin.lineinfile:
     create: yes
     mode: 0644
     owner: root
@@ -58,7 +58,7 @@
   loop: '{{ ssh_keyscan.stdout_lines }}'
 
 - name: deploy watchdog ssh script
-  template:
+  ansible.builtin.template:
     src: watchdogd_ssh_localhost.j2
     dest: '{{ watchdog_ssh_testscript }}'
     mode: 0755
@@ -66,7 +66,7 @@
     group: root
 
 - name: enable watchdog script in watchdog.conf
-  lineinfile:
+  ansible.builtin.lineinfile:
     dest: /etc/watchdog.conf
     regexp: test-binary
     line: 'test-binary = {{ watchdog_ssh_testscript }}'

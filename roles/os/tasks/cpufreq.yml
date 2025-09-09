@@ -1,10 +1,10 @@
 ---
 - name: install cpufrequtils
-  apt:
+  ansible.builtin.apt:
     name: cpufrequtils
 
 - name: setup cpufrequtils
-  template:
+  ansible.builtin.template:
     src: defaults-cpufrequtils.j2
     dest: /etc/default/cpufrequtils
   notify:
@@ -12,6 +12,6 @@
   - restart cpufrequtils
 
 - name: clear obsolete cpufrequtils systemd service dropin directory
-  file:
+  ansible.builtin.file:
     path: /etc/systemd/system/cpufrequtils.service.d
     state: absent

@@ -1,2 +1,2 @@
 ---
-- import_tasks: private/check-apiserver.yml
+- ansible.builtin.import_tasks: private/check-apiserver.yml

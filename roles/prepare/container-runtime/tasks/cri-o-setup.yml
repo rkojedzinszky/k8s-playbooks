@@ -1,6 +1,6 @@
 ---
 - name: "Ensure CRI directories are absent"
-  file:
+  ansible.builtin.file:
     path: "{{ item }}"
     state: absent
   loop:
@@ -12,7 +12,7 @@
   - /etc/apt/sources.list.d/cri-o.list
 
 - name: Deploy APT cri-o.sources
-  copy:
+  ansible.builtin.copy:
     content: |
       Types: deb
       URIs: http://apt.srv.kojedz.in/
@@ -103,20 +103,20 @@
     dest: /etc/apt/sources.list.d/cri-o.sources
   notify: update apt cache
 
-- meta: flush_handlers
+- ansible.builtin.meta: flush_handlers
 
 - name: install cri-o
-  apt:
+  ansible.builtin.apt:
     name: "{{ cri_o_package_name }}"
 
 - name: clear cri-o shipped cni configuration
-  file:
+  ansible.builtin.file:
     path: "/etc/cni/net.d/{{ item }}"
     state: absent
   loop: "{{ cri_o_cni_configurations }}"
   notify: restart crio
 
 - name: Ensure crio is started
-  service:
+  ansible.builtin.service:
     name: crio
     enabled: yes

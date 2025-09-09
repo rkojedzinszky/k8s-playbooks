@@ -1,6 +1,6 @@
 ---
 - name: "Fetch installed packages"
-  package_facts: {}
+  ansible.builtin.package_facts: {}
 
 - name: Remove obsolete versions of cri-o
   ansible.builtin.apt:

@@ -1,45 +1,45 @@
 ---
 - name: Check whether cri-o is installed
-  shell: "dpkg -l | grep -E '^ii[[:space:]]+cri-o-' | wc -l"
+  ansible.builtin.shell: "dpkg -l | grep -E '^ii[[:space:]]+cri-o-' | wc -l"
   register: cri_o_count
   changed_when: False
 
-- include_tasks: cri-o-setup.yml
+- ansible.builtin.include_tasks: cri-o-setup.yml
   when: "cri_o_count.stdout|int == 0"
 
 - name: Ensure /etc/containers exists
-  file:
+  ansible.builtin.file:
     path: /etc/containers
     state: directory
 
 - name: Deploy /etc/containers/policy.json
-  copy:
+  ansible.builtin.copy:
     content: "{{ container_runtime_containers_policy | to_json }}"
     dest: /etc/containers/policy.json
 
 - name: Ensure crio configuration drop-in directory exists
-  file:
+  ansible.builtin.file:
     path: /etc/crio/crio.conf.d
     state: directory
 
 - name: Generate cri-o drop-in configuration
-  template:
+  ansible.builtin.template:
     src: cri-o-customize.conf.j2
     dest: /etc/crio/crio.conf.d/zz-customize.conf
   notify: restart crio
 
 - name: Deploy /etc/containers/registries.conf
-  copy:
+  ansible.builtin.copy:
     dest: /etc/containers/registries.conf
     content: "{{ container_runtime_crio_containers_registries_conf }}"
   when: container_runtime_crio_containers_registries_conf is defined
   notify: restart crio
 
 - name: Remove /etc/containers/registries.conf
-  file:
+  ansible.builtin.file:
     path: /etc/containers/registries.conf
     state: absent
   when: container_runtime_crio_containers_registries_conf is not defined
   notify: restart crio
 
-- meta: flush_handlers
+- ansible.builtin.meta: flush_handlers

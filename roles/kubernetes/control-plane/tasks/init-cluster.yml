@@ -1,34 +1,34 @@
 # This tasklist will do the actual initialization of a k8s cluster
 ---
 - name: create working directory
-  tempfile:
+  ansible.builtin.tempfile:
     state: directory
   register: tempdir
 
 - name: parse working directory
-  set_fact:
+  ansible.builtin.set_fact:
     tempdir: "{{ tempdir.path }}"
 
 - name: generate initial kubeadm config
-  template:
+  ansible.builtin.template:
     src: kubeadm-config.yaml.j2
     dest: "{{ tempdir }}/kubeadm-config.yaml"
 
 - name: initialize cluster
-  command: "kubeadm init --config {{ tempdir }}/kubeadm-config.yaml"
+  ansible.builtin.command: "kubeadm init --config {{ tempdir }}/kubeadm-config.yaml"
 
 - name: init kube config
-  file:
+  ansible.builtin.file:
     path: /root/.kube
     state: directory
 
 - name: copy kubectl config
-  command: "cp -f /etc/kubernetes/admin.conf /root/.kube/config"
+  ansible.builtin.command: "cp -f /etc/kubernetes/admin.conf /root/.kube/config"
 
 - name: cleanup
-  file:
+  ansible.builtin.file:
     path: "{{ tempdir }}"
     state: absent
 
 - name: Deploy kube-router
-  command: "kubectl apply -f https://raw.githubusercontent.com/cloudnativelabs/kube-router/master/daemonset/kubeadm-kuberouter.yaml"
+  ansible.builtin.command: "kubectl apply -f https://raw.githubusercontent.com/cloudnativelabs/kube-router/master/daemonset/kubeadm-kuberouter.yaml"

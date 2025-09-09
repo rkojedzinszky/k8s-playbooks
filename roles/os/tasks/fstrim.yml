@@ -1,6 +1,6 @@
 ---
 - name: remove obsolete fstrim scripts
-  file:
+  ansible.builtin.file:
     path: "{{ item }}"
     state: absent
   loop:
@@ -10,19 +10,19 @@
 - name: enable fstrim timer
   when: os_fstrim is defined
   block:
-  - file:
+  - ansible.builtin.file:
       path: /etc/systemd/system/fstrim.timer.d
       state: directory
 
-  - template:
+  - ansible.builtin.template:
       src: fstrim-timer-d-timer-os.conf.j2
       dest: /etc/systemd/system/fstrim.timer.d/timer-os.conf
     notify:
     - reload systemd
 
-  - meta: flush_handlers
+  - ansible.builtin.meta: flush_handlers
 
-  - systemd:
+  - ansible.builtin.systemd:
       name: fstrim.timer
       state: started
       enabled: yes
@@ -30,15 +30,15 @@
 - name: disable fstrim timer
   when: os_fstrim is not defined
   block:
-  - file:
+  - ansible.builtin.file:
       path: /etc/systemd/system/fstrim.timer.d
       state: absent
     notify:
     - reload systemd
 
-  - meta: flush_handlers
+  - ansible.builtin.meta: flush_handlers
 
-  - systemd:
+  - ansible.builtin.systemd:
       name: fstrim.timer
       state: stopped
       enabled: no

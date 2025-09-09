@@ -1,10 +1,10 @@
 ---
 - name: Install ca-certificates
-  apt:
+  ansible.builtin.apt:
     name: ca-certificates
 
 - name: Remove legacy files
-  file:
+  ansible.builtin.file:
     path: "{{ item }}"
     state: absent
   loop:
@@ -22,7 +22,7 @@
 
 # TODO: switch to deb822_repository
 - name: Prepare key to be embedded in debian sources
-  command:
+  ansible.builtin.command:
     cmd: sed -e "s/^$/./" -e "s/^/ /"
     stdin: "{{ kubernetes_public_signing_key_armored.content }}"
   register: kubernetes_public_signing_key_embedded
@@ -32,7 +32,7 @@
 
 # TODO: switch to deb822_repository
 - name: Deploy Kubernetes sources
-  copy:
+  ansible.builtin.copy:
     content: |
       Types: deb
       URIs: https://pkgs.k8s.io/core:/stable:/v{{ supported_kubernetes_version | join('.') }}/deb/
@@ -42,4 +42,4 @@
     dest: /etc/apt/sources.list.d/kubernetes.sources
   notify: update apt cache
 
-- meta: flush_handlers
+- ansible.builtin.meta: flush_handlers

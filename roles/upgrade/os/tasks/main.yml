@@ -1,14 +1,14 @@
 ---
 - name: Upgrade os
-  apt:
+  ansible.builtin.apt:
     update_cache: yes
     upgrade: safe
 
 - name: Cleanup apt
-  command: apt-get clean
+  ansible.builtin.command: apt-get clean
 
 - name: Remove dangling initrd.img files
-  shell: |-
+  ansible.builtin.shell: |-
     cd /boot
     set -- initrd.img-*
     test -f "$1" && \

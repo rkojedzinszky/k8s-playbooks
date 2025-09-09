@@ -1,11 +1,11 @@
 ---
 - name: "{{ inventory_hostname }} - stop kubelet"
-  service:
+  ansible.builtin.service:
     name: kubelet
     state: stopped
 
 - name: "{{ inventory_hostname }} - obtain last KubeletReady heartbeat"
-  command:
+  ansible.builtin.command:
   args:
     argv:
     - kubectl

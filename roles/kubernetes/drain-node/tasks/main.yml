@@ -15,6 +15,6 @@
   retries: 1
 
 - name: "Drain node"
-  command: "kubectl {% if kubernetes_drain_node_localhost_kubectl_context %}--context={{ kubernetes_drain_node_localhost_kubectl_context }}{% endif %} drain --ignore-daemonsets --delete-emptydir-data --force {{ inventory_hostname }}"
+  ansible.builtin.command: "kubectl {% if kubernetes_drain_node_localhost_kubectl_context %}--context={{ kubernetes_drain_node_localhost_kubectl_context }}{% endif %} drain --ignore-daemonsets --delete-emptydir-data --force {{ inventory_hostname }}"
   delegate_to: "{{ 'localhost' if kubernetes_drain_node_localhost_kubectl_context else chosen_master }}"
   retries: 1

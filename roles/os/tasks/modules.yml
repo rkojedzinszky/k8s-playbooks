@@ -1,10 +1,10 @@
 ---
 - name: generate boot-time modules-load
-  template:
+  ansible.builtin.template:
     src: os-fw.conf.j2
     dest: /etc/modules-load.d/os-fw.conf
 
 - name: load modules
-  modprobe:
+  ansible.builtin.modprobe:
     name: "{{ item }}"
   loop: "{{ os_fw_modules }}"
