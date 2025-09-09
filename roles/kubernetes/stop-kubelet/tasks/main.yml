@@ -1,10 +1,10 @@
 ---
-- name: "{{ inventory_hostname }} - stop kubelet"
+- name: stop kubelet
   ansible.builtin.service:
     name: kubelet
     state: stopped
 
-- name: "{{ inventory_hostname }} - obtain last KubeletReady heartbeat"
+- name: obtain last KubeletReady heartbeat
   ansible.builtin.command:
   args:
     argv:
@@ -16,4 +16,3 @@
     - jsonpath={.status.conditions[?(@.reason=="KubeletReady")].lastHeartbeatTime}
   delegate_to: "{{ chosen_master }}"
   register: last_kubeletready_heartbeat
-

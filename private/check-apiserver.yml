@@ -1,5 +1,5 @@
 ---
-- name: "{{ inventory_hostname }} - wait until apiserver becomes healthy"
+- name: wait until apiserver becomes healthy
   when: "'master' in group_names"
   ansible.builtin.command:
     argv:
