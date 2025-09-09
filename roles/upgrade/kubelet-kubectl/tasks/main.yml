@@ -18,5 +18,4 @@
     name: kubelet
     state: started
 
-- name: Flush handlers
-  ansible.builtin.meta: flush_handlers
+- ansible.builtin.meta: flush_handlers
