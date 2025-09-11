@@ -6,10 +6,11 @@
 
 - name: Collect nodes which needs to be joined
   ansible.builtin.set_fact:
-    nodes_to_join: |-
-      {% set nodes_to_join = [] %}
-      {% for h in groups['cluster'] %}{% if not hostvars[h].kubelet_conf_stat.stat.exists %}{% set _ = nodes_to_join.append(h) %}{% endif %}{% endfor %}
-      {{ nodes_to_join }}
+    nodes_to_join: >-
+      {{ groups['cluster']
+        | map('extract', hostvars)
+        | rejectattr('kubelet_conf_stat.stat.exists')
+        | map(attribute='inventory_hostname') }}
   run_once: yes
 
 - ansible.builtin.debug:

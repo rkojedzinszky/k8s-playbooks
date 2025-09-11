@@ -7,4 +7,4 @@
     name: "{{ ansible_facts.packages.keys() | select('search', '^cri-o-') | difference([cri_o_package_name]) }}"
     state: absent
     purge: yes
-  when: "ansible_facts.packages.keys() | select('search', '^cri-o-') | difference([cri_o_package_name])"
+  when: "ansible_facts.packages.keys() | select('search', '^cri-o-') | difference([cri_o_package_name]) | length > 0"

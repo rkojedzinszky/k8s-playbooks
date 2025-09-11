@@ -22,10 +22,13 @@
 - name: Ensure no different kubernetes clusters exist
   run_once: yes
   ansible.builtin.set_fact:
-    kubeadm_configs_count: |-
-      {% set configs = dict() %}
-      {% for h in groups['master'] %}{% if 'kubeadm_config_hash' in hostvars[h] %}{% set _ = configs.setdefault(hostvars[h].kubeadm_config_hash, True) %}{% endif %}{% endfor %}
-      {{ configs.keys() | length }}
+    kubeadm_configs_count: >-
+      {{ groups['master']
+        | map('extract', hostvars)
+        | selectattr('kubeadm_config_hash', 'defined')
+        | map(attribute='kubeadm_config_hash')
+        | unique
+        | length }}
   failed_when: "kubeadm_configs_count|int > 1"
 
 - name: Initialize cluster
@@ -43,7 +46,9 @@
   - name: Select master to work on later
     run_once: yes
     ansible.builtin.set_fact:
-      chosen_master: |-
-        {% set hosts = [] %}
-        {% for h in groups['master'] %}{% if 'kubeadm_config_hash' in hostvars[h] %}{% set _ = hosts.append(h) %}{% endif %}{% endfor %}
-        {{ hosts | first }}
+      chosen_master: >-
+        {{ groups['master']
+          | map('extract', hostvars)
+          | selectattr('kubeadm_config_hash', 'defined')
+          | map(attribute='inventory_hostname')
+          | first }}
