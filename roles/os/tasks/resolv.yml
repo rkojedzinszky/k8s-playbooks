@@ -1,5 +1,5 @@
 ---
-- name: generate /etc/hostname
+- name: Generate /etc/hostname
   ansible.builtin.copy:
     content: |
       {{ inventory_hostname }}
@@ -9,12 +9,12 @@
 
 - ansible.builtin.meta: flush_handlers
 
-- name: generate hosts file
+- name: Generate hosts file
   ansible.builtin.template:
     src: hosts.j2
     dest: /etc/hosts
 
-- name: generate resolv.conf
+- name: Generate resolv.conf
   ansible.builtin.template:
     src: resolv.conf.j2
     dest: /etc/resolv.conf

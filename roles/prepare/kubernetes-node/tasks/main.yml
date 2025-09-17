@@ -1,16 +1,16 @@
 ---
 - ansible.builtin.apt: name=curl,tcpdump
 
-- name: disable swap permanently
+- name: Disable swap permanently
   ansible.builtin.lineinfile:
     dest: /etc/fstab
     regexp: swap
     state: absent
 
-- name: disable active swap
+- name: Disable active swap
   ansible.builtin.command: swapoff -a
 
-- name: install kubernetes packages
+- name: Install kubernetes packages
   ansible.builtin.apt:
     name:
     - "kubelet={{ kubernetes_version }}-*"
@@ -18,10 +18,10 @@
     - "kubectl={{ kubernetes_version }}-*"
   notify: restart kubelet
 
-- name: hold kubernetes packages
+- name: Hold kubernetes packages
   ansible.builtin.shell: apt-mark hold kubelet kubeadm kubectl
 
-- name: deploy kubelet extra args
+- name: Deploy kubelet extra args
   ansible.builtin.template:
     src: default_kubelet.j2
     dest: /etc/default/kubelet
@@ -29,7 +29,7 @@
 
 - ansible.builtin.meta: flush_handlers
 
-- name: deploy kubernetes sysctls
+- name: Deploy kubernetes sysctls
   ansible.builtin.template:
     src: kubernetes-node.conf.j2
     dest: /etc/sysctl.d/kubernetes-node.conf

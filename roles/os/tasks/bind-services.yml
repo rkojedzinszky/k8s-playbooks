@@ -1,5 +1,5 @@
 ---
-- name: bind ssh to specified ip
+- name: Bind ssh to specified ip
   ansible.builtin.lineinfile:
     dest: /etc/ssh/sshd_config
     regexp: ListenAddress

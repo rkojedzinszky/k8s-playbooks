@@ -1,10 +1,10 @@
 ---
-- name: fail if 'apt' variable is defined (deprecated)
+- name: Fail if 'apt' variable is defined (deprecated)
   ansible.builtin.fail:
     msg: "The 'apt' variable is no longer supported"
   when: apt is defined
 
-- name: remove unsupported ext.sources.list file
+- name: Remove unsupported ext.sources.list file
   ansible.builtin.file:
     path: /etc/apt/sources.list.d/ext.sources.list
     state: absent

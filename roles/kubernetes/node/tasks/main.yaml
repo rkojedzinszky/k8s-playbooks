@@ -42,10 +42,10 @@
   - name: Prepare .kube/config
     when: "'master' in group_names"
     block:
-    - name: init kube config
+    - name: Init kube config
       ansible.builtin.file:
         path: /root/.kube
         state: directory
 
-    - name: copy kubectl config
+    - name: Copy kubectl config
       ansible.builtin.command: "cp -f /etc/kubernetes/admin.conf /root/.kube/config"

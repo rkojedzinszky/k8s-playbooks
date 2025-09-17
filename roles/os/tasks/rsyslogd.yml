@@ -1,4 +1,4 @@
-- name: setup rsyslogd remote logging
+- name: Setup rsyslogd remote logging
   ansible.builtin.copy:
     content: |
       *.* @{{ rsyslogd_remote }}
@@ -6,7 +6,7 @@
   notify: restart rsyslogd
   when: rsyslogd_remote is defined
 
-- name: clear rsyslogd remote logging
+- name: Clear rsyslogd remote logging
   ansible.builtin.file:
     path: /etc/rsyslog.d/zz-remotelog.conf
     state: absent

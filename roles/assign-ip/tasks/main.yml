@@ -1,5 +1,5 @@
 ---
-- name: Setup host ip
+- name: Setup host IP
   when: ip is not defined
   ansible.builtin.set_fact:
     ip: "{{ ansible_default_ipv4.address }}"

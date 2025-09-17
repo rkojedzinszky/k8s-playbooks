@@ -5,7 +5,7 @@
       msg: "daily_fstrim_enable is deprecated; use os_fstrim=daily"
     ignore_errors: yes
 
-  - name: set os_fstrim
+  - name: Set os_fstrim
     ansible.builtin.set_fact:
       os_fstrim: "daily"
     when: os_fstrim is not defined
@@ -16,7 +16,7 @@
       msg: "weekly_fstrim_enable deprecated; use os_fstrim=weekly"
     ignore_errors: yes
 
-  - name: set os_fstrim
+  - name: Set os_fstrim
     ansible.builtin.set_fact:
       os_fstrim: "weekly"
     when: os_fstrim is not defined

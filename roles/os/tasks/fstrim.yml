@@ -1,5 +1,5 @@
 ---
-- name: remove obsolete fstrim scripts
+- name: Remove obsolete fstrim scripts
   ansible.builtin.file:
     path: "{{ item }}"
     state: absent
@@ -7,7 +7,7 @@
   - /etc/cron.daily/fstrim
   - /etc/cron.weekly/fstrim
 
-- name: enable fstrim timer
+- name: Enable fstrim timer
   when: os_fstrim is defined
   block:
   - ansible.builtin.file:
@@ -27,7 +27,7 @@
       state: started
       enabled: yes
 
-- name: disable fstrim timer
+- name: Disable fstrim timer
   when: os_fstrim is not defined
   block:
   - ansible.builtin.file:

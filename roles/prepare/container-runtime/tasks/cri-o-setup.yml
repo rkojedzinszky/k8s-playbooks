@@ -105,11 +105,11 @@
 
 - ansible.builtin.meta: flush_handlers
 
-- name: install cri-o
+- name: Install cri-o
   ansible.builtin.apt:
     name: "{{ cri_o_package_name }}"
 
-- name: clear cri-o shipped cni configuration
+- name: Clear cri-o shipped cni configuration
   ansible.builtin.file:
     path: "/etc/cni/net.d/{{ item }}"
     state: absent

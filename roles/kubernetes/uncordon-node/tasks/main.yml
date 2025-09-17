@@ -1,6 +1,6 @@
 # Uncordon a node
 ---
-- name: wait for KubeletReady heartbeat
+- name: Wait for KubeletReady heartbeat
   ansible.builtin.command:
   args:
     argv:
@@ -17,7 +17,7 @@
   delay: 2
   when: last_kubeletready_heartbeat is defined
 
-- name: check if all podCIDRs are reachable
+- name: Check if all podCIDRs are reachable
   ansible.builtin.shell: "ip route | grep -q '^{{ item }} '"
   register: ip_route_get
   until: ip_route_get.rc == 0
@@ -25,12 +25,12 @@
   retries: 90
   delay: 4
 
-- name: uncordon node
+- name: Uncordon node
   ansible.builtin.command: "kubectl uncordon {{ inventory_hostname }}"
   delegate_to: "{{ chosen_master }}"
   retries: 1
 
-- name: sleep additional grace time
+- name: Sleep additional grace time
   ansible.builtin.wait_for:
     timeout: "{{ kubernetes_reboot_post_wait_time }}"
   delegate_to: localhost

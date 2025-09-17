@@ -1,8 +1,8 @@
 ---
-- name: apply kubernetes sysctls
+- name: Apply kubernetes sysctls
   ansible.builtin.command: sysctl -p /etc/sysctl.d/kubernetes-node.conf
 
-- name: restart kubelet
+- name: Restart kubelet
   ansible.builtin.systemd:
     daemon_reload: yes
     name: kubelet

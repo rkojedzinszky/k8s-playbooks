@@ -1,18 +1,18 @@
 ---
-- name: slurp file
+- name: Slurp file
   run_once: yes
   delegate_to: "{{ source_host }}"
   ansible.builtin.slurp:
     src: "{{ item.path }}"
   register: file_contents
 
-- name: distribute file
+- name: Distribute file
   ansible.builtin.copy:
     content: "{{ file_contents.content | b64decode }}"
     dest: "{{ item.path }}"
     mode: "{{ item.mode | default('0644') }}"
 
-- name: cleanup variable
+- name: Cleanup variable
   ansible.builtin.set_fact:
     file_contents: ""
   run_once: yes

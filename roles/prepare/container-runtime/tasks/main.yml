@@ -2,6 +2,6 @@
 - name: Install container runtime
   ansible.builtin.include_tasks: "{{ container_runtime }}.yml"
 
-- name: export variables for later use
+- name: Export variables for later use
   ansible.builtin.set_fact:
     container_runtime_cgroup_driver: "{{ container_runtime_cgroup_driver }}"

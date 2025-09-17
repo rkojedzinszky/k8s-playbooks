@@ -1,10 +1,10 @@
 ---
-- name: stop kubelet
+- name: Stop kubelet
   ansible.builtin.service:
     name: kubelet
     state: stopped
 
-- name: obtain last KubeletReady heartbeat
+- name: Obtain last KubeletReady heartbeat
   ansible.builtin.command:
   args:
     argv:

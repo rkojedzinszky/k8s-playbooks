@@ -1,33 +1,33 @@
 ---
-- name: update apt cache
+- name: Update apt cache
   ansible.builtin.apt: update_cache=Yes
 
-- name: stop watchdogd
+- name: Stop watchdogd
   ansible.builtin.service:
     name: watchdog
     state: stopped
   listen: restart watchdogd
 
-- name: start watchdogd
+- name: Start watchdogd
   ansible.builtin.service:
     name: watchdog
     state: started
   listen: restart watchdogd
 
-- name: reload systemd
+- name: Reload systemd
   ansible.builtin.systemd:
     daemon_reload: yes
 
-- name: restart cpufrequtils
+- name: Restart cpufrequtils
   ansible.builtin.service:
     name: cpufrequtils
     state: restarted
 
-- name: restart rsyslogd
+- name: Restart rsyslogd
   ansible.builtin.service:
     name: rsyslog
     state: restarted
 
-- name: set hostname
+- name: Set hostname
   listen: hostname updated
   ansible.builtin.command: hostname --file /etc/hostname

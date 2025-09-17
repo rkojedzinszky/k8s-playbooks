@@ -10,13 +10,13 @@
 
 - ansible.builtin.import_tasks: resolv.yml
 
-- name: remove deprecated /etc/apt/sources.list
+- name: Remove deprecated /etc/apt/sources.list
   ansible.builtin.file:
     path: /etc/apt/sources.list
     state: absent
   notify: update apt cache
 
-- name: generate /etc/apt/sources.list.d/debian.sources
+- name: Generate /etc/apt/sources.list.d/debian.sources
   ansible.builtin.template:
     src: debian.sources.j2
     dest: /etc/apt/sources.list.d/debian.sources
@@ -29,11 +29,11 @@
 
 - ansible.builtin.meta: flush_handlers
 
-- name: install some essential packages
+- name: Install some essential packages
   ansible.builtin.apt:
     name: "{{ essential_packages }}"
 
-- name: disable shell history
+- name: Disable shell history
   ansible.builtin.file:
     path: /root/.bash_history
     state: link
