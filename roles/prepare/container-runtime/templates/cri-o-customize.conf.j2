@@ -7,7 +7,6 @@ default_sysctls = {{ container_runtime_default_sysctls | to_json }}
 log_size_max = {{ container_runtime_max_log_size }}
 default_env = {{ container_runtime_default_environment | to_json }}
 seccomp_use_default_when_empty = {{ crio_runtime_seccomp_use_default_when_empty | to_json }}
-drop_infra_ctr = false # https://github.com/kubernetes/kubernetes/issues/126682
 
 [crio.image]
 insecure_registries = {{ container_runtime_insecure_registries | to_json }}
