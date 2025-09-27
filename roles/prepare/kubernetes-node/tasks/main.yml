@@ -16,7 +16,7 @@
     - "kubelet={{ kubernetes_version }}-*"
     - "kubeadm={{ kubernetes_version }}-*"
     - "kubectl={{ kubernetes_version }}-*"
-  notify: restart kubelet
+  notify: Restart kubelet
 
 - name: Hold kubernetes packages
   ansible.builtin.shell: apt-mark hold kubelet kubeadm kubectl
@@ -25,7 +25,7 @@
   ansible.builtin.template:
     src: default_kubelet.j2
     dest: /etc/default/kubelet
-  notify: restart kubelet
+  notify: Restart kubelet
 
 - ansible.builtin.meta: flush_handlers
 
@@ -33,7 +33,7 @@
   ansible.builtin.template:
     src: kubernetes-node.conf.j2
     dest: /etc/sysctl.d/kubernetes-node.conf
-  notify: apply kubernetes sysctls
+  notify: Apply kubernetes sysctls
   tags:
   - sysctl
 

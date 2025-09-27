@@ -4,7 +4,7 @@
     dest: /etc/systemd/system.conf
     regexp: RuntimeWatchdogSec
     line: '#RuntimeWatchdogSec=0'
-  notify: reload systemd
+  notify: Reload systemd
 
 - ansible.builtin.meta: flush_handlers
 

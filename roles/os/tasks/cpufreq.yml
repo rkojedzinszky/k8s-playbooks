@@ -8,8 +8,8 @@
     src: defaults-cpufrequtils.j2
     dest: /etc/default/cpufrequtils
   notify:
-  - reload systemd
-  - restart cpufrequtils
+  - Reload systemd
+  - Restart cpufrequtils
 
 - name: Clear obsolete cpufrequtils systemd service dropin directory
   ansible.builtin.file:

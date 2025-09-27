@@ -26,20 +26,20 @@
   ansible.builtin.template:
     src: cri-o-customize.conf.j2
     dest: /etc/crio/crio.conf.d/zz-customize.conf
-  notify: restart crio
+  notify: Restart crio
 
 - name: Deploy /etc/containers/registries.conf
   ansible.builtin.copy:
     dest: /etc/containers/registries.conf
     content: "{{ container_runtime_crio_containers_registries_conf }}"
   when: container_runtime_crio_containers_registries_conf is defined
-  notify: restart crio
+  notify: Restart crio
 
 - name: Remove /etc/containers/registries.conf
   ansible.builtin.file:
     path: /etc/containers/registries.conf
     state: absent
   when: container_runtime_crio_containers_registries_conf is not defined
-  notify: restart crio
+  notify: Restart crio
 
 - ansible.builtin.meta: flush_handlers

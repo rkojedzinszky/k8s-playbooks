@@ -14,7 +14,7 @@
   ansible.builtin.file:
     path: /etc/apt/sources.list
     state: absent
-  notify: update apt cache
+  notify: Update apt cache
 
 - name: Generate /etc/apt/sources.list.d/debian.sources
   ansible.builtin.template:
@@ -23,7 +23,7 @@
     mode: '0644'
     owner: root
     group: root
-  notify: update apt cache
+  notify: Update apt cache
 
 - ansible.builtin.import_tasks: apt-ext-lists.yml
 

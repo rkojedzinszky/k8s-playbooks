@@ -8,4 +8,4 @@
   ansible.builtin.file:
     path: /etc/apt/sources.list.d/ext.sources.list
     state: absent
-  notify: update apt cache
+  notify: Update apt cache

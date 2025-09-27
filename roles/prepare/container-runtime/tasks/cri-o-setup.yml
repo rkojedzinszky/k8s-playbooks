@@ -101,7 +101,7 @@
         -----END PGP PUBLIC KEY BLOCK-----
 
     dest: /etc/apt/sources.list.d/cri-o.sources
-  notify: update apt cache
+  notify: Update apt cache
 
 - ansible.builtin.meta: flush_handlers
 
@@ -114,7 +114,7 @@
     path: "/etc/cni/net.d/{{ item }}"
     state: absent
   loop: "{{ cri_o_cni_configurations }}"
-  notify: restart crio
+  notify: Restart crio
 
 - name: Ensure crio is started
   ansible.builtin.service:

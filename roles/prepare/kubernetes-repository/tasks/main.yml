@@ -40,6 +40,6 @@
       Signed-By:
       {{ kubernetes_public_signing_key_embedded.stdout }}
     dest: /etc/apt/sources.list.d/kubernetes.sources
-  notify: update apt cache
+  notify: Update apt cache
 
 - ansible.builtin.meta: flush_handlers
