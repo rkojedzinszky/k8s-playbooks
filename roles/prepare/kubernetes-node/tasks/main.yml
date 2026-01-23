@@ -1,6 +1,4 @@
 ---
-- ansible.builtin.apt: name=curl,tcpdump
-
 - name: Disable swap permanently
   ansible.builtin.lineinfile:
     dest: /etc/fstab

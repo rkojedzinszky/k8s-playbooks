@@ -1,17 +1,14 @@
 ---
 - name: wait until apiserver becomes ready
   when: "'master' in group_names"
-  ansible.builtin.command:
-    argv:
-      - curl
-      - --max-time
-      - "1"
-      - -s
-      - --cacert
-      - /etc/kubernetes/pki/ca.crt
-      - "https://{{ ip }}:6443/readyz"
+  ansible.builtin.uri:
+    ca_path: /etc/kubernetes/pki/ca.crt
+    url: "https://{{ ip }}:6443/readyz"
+    timeout: 1
+    # https://github.com/kiwigrid/k8s-sidecar/issues/400
+    validate_certs: False
   register: result
-  until: "'ok' == result.stdout"
+  until: result.status == 200
   retries: 120
   delay: 5
   tags:
