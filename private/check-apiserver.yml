@@ -1,5 +1,5 @@
 ---
-- name: wait until apiserver becomes healthy
+- name: wait until apiserver becomes ready
   when: "'master' in group_names"
   ansible.builtin.command:
     argv:
@@ -9,7 +9,7 @@
       - -s
       - --cacert
       - /etc/kubernetes/pki/ca.crt
-      - "https://{{ ip }}:6443/healthz"
+      - "https://{{ ip }}:6443/readyz"
   register: result
   until: "'ok' == result.stdout"
   retries: 120
