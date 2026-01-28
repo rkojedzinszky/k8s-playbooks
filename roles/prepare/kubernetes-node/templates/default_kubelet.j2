@@ -1,5 +1,1 @@
-{%- set args = [] -%}
-{%- if kubernetes_node_ip is defined -%}
-{%- set _ = args.append("--node-ip=" + kubernetes_node_ip) -%}
-{%- endif -%}
-KUBELET_EXTRA_ARGS="{{ args | join(' ') }}"
+KUBELET_EXTRA_ARGS="{% if kubernetes_node_ips %}--node-ip={{ kubernetes_node_ips | join(',') }}{% endif %}"

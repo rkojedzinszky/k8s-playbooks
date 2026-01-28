@@ -19,6 +19,34 @@
 - name: Hold kubernetes packages
   ansible.builtin.shell: apt-mark hold kubelet kubeadm kubectl
 
+- ansible.builtin.fail:
+    msg: "Setting kubernetes_node_ip is deprecated, migrate to kubernetes_node_ipv4_address."
+  when: kubernetes_node_ip is defined
+  ignore_errors: True
+
+- name: Set kubernetes_node_ips
+  ansible.builtin.set_fact:
+    kubernetes_node_ips: |-
+      {%- set ns = namespace(ips=[]) %}
+      {%- if kubernetes_node_ip is defined %}
+        {%- set ns.ips = ns.ips + [kubernetes_node_ip] %}
+      {%- elif kubernetes_node_ipv4_address %}
+        {%- if kubernetes_node_ipv4_address in ansible_facts %}
+          {%- set ns.ips = ns.ips + [ansible_facts[kubernetes_node_ipv4_address].ipv4.address] %}
+        {%- else %}
+          {%- set ns.ips = ns.ips + [kubernetes_node_ipv4_address] %}
+        {%- endif %}
+      {%- endif %}
+
+      {%- if kubernetes_node_ipv6_address %}
+        {%- if kubernetes_node_ipv6_address in ansible_facts %}
+          {%- set ns.ips = ns.ips + [ansible_facts[kubernetes_node_ipv6_address].ipv6 | selectattr('scope', 'equalto', 'global') | map(attribute='address') | first] %}
+        {%- else %}
+          {%- set ns.ips = ns.ips + [kubernetes_node_ipv6_address] %}
+        {%- endif %}
+      {%- endif %}
+      {{- ns.ips -}}
+
 - name: Deploy kubelet extra args
   ansible.builtin.template:
     src: default_kubelet.j2
