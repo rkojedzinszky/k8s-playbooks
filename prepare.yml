@@ -7,7 +7,7 @@
     - prepare/cri-o-version
     - prepare/container-runtime
 
-- hosts: cluster,!master
+- hosts: cluster
   any_errors_fatal: true
   roles:
     - prepare/kubernetes-worker-node
