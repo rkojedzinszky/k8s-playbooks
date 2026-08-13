@@ -1,4 +1,11 @@
 ---
+- name: Fail if deprecated container_runtime_insecure_registries is set
+  ansible.builtin.fail:
+    msg: >-
+      The variable container_runtime_insecure_registries is deprecated since 1.35
+      and ignored. Migrate to container_runtime_crio_containers_registries_conf.
+  when: container_runtime_insecure_registries is defined
+
 - name: Install container runtime
   ansible.builtin.include_tasks: "{{ container_runtime }}.yml"
 
