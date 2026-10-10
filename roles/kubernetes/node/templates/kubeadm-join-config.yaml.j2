@@ -1,0 +1,22 @@
+---
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: JoinConfiguration
+# All nodes store the downloaded cluster CA at the bundle path, which every
+# node's kubelet already trusts via the cluster-wide clientCAFile.
+caCertPath: /etc/kubernetes/pki/ca-bundle.crt
+discovery:
+  bootstrapToken:
+    apiServerEndpoint: {{ join_api_endpoint }}
+    token: {{ join_token }}
+    caCertHashes:
+    - {{ join_ca_hash }}
+  tlsBootstrapToken: {{ join_token }}
+{% if 'master' in group_names %}
+{% if kubernetes_node_ips %}
+controlPlane:
+  localAPIEndpoint:
+    advertiseAddress: {{ kubernetes_node_ips | join(",") }}
+{% else %}
+controlPlane: {}
+{% endif %}
+{% endif %}

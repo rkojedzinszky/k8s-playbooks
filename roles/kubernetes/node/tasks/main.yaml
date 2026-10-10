@@ -18,9 +18,11 @@
       - path: /etc/kubernetes/pki/etcd/ca.key
         mode: "0600"
       - path: /etc/kubernetes/pki/ca.crt
+      - path: /etc/kubernetes/pki/ca-bundle.crt
       - path: /etc/kubernetes/pki/ca.key
         mode: "0600"
       - path: /etc/kubernetes/pki/front-proxy-ca.crt
+      - path: /etc/kubernetes/pki/front-proxy-ca-bundle.crt
       - path: /etc/kubernetes/pki/front-proxy-ca.key
         mode: "0600"
       - path: /etc/kubernetes/pki/sa.key
@@ -30,12 +32,38 @@
       vars:
         source_host: "{{ chosen_master }}"
 
-    - name: Extend join command
-      ansible.builtin.set_fact:
-        join_command: "{{ join_command }} --control-plane{% if kubernetes_node_ips %} --apiserver-advertise-address {{ kubernetes_node_ips | join(',') }}{% endif %}"
+  # Printed form is stable:
+  # kubeadm join <endpoint> --token <token> --discovery-token-ca-cert-hash <hash>
+  - name: Parse join command into endpoint, token and CA hash
+    ansible.builtin.set_fact:
+      join_api_endpoint: "{{ join_command.split()[2] }}"
+      join_token: "{{ join_command.split()[join_command.split().index('--token') + 1] }}"
+      join_ca_hash: "{{ join_command.split()[join_command.split().index('--discovery-token-ca-cert-hash') + 1] }}"
+
+  - name: Create join config working directory
+    ansible.builtin.tempfile:
+      state: directory
+    register: join_tempdir
+
+  - name: Parse join config working directory
+    ansible.builtin.set_fact:
+      join_config_path: "{{ join_tempdir.path }}/kubeadm-join-config.yaml"
+
+  - name: Generate kubeadm join config
+    ansible.builtin.template:
+      src: kubeadm-join-config.yaml.j2
+      dest: "{{ join_config_path }}"
+      owner: root
+      group: root
+      mode: "0600"
 
   - name: Join node
-    ansible.builtin.command: "{{ join_command }} {{ kubernetes_node_join_extra_args }}"
+    ansible.builtin.command: "kubeadm join --config {{ join_config_path }} {{ kubernetes_node_join_extra_args }}"
+
+  - name: Remove join config
+    ansible.builtin.file:
+      path: "{{ join_config_path }}"
+      state: absent
 
   - ansible.builtin.import_tasks: private/check-apiserver.yml
 

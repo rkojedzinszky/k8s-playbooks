@@ -3,6 +3,19 @@ apiVersion: kubeadm.k8s.io/v1beta4
 kind: ClusterConfiguration
 apiServer:
   certSANs: {{ kubernetes_apiserver_certsans | to_json }}
+  extraArgs:
+  - name: client-ca-file
+    value: /etc/kubernetes/pki/ca-bundle.crt
+  - name: requestheader-client-ca-file
+    value: /etc/kubernetes/pki/front-proxy-ca-bundle.crt
+controllerManager:
+  extraArgs:
+  - name: root-ca-file
+    value: /etc/kubernetes/pki/ca-bundle.crt
+  - name: client-ca-file
+    value: /etc/kubernetes/pki/ca-bundle.crt
+  - name: requestheader-client-ca-file
+    value: /etc/kubernetes/pki/front-proxy-ca-bundle.crt
 kubernetesVersion: v{{ kubernetes_version }}
 networking:
   serviceSubnet: {{ kubernetes_service_subnet }}
@@ -17,3 +30,9 @@ kind: InitConfiguration
 localAPIEndpoint:
   advertiseAddress: {{ kubernetes_node_ips | join(",") }}
 {% endif %}
+---
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+authentication:
+  x509:
+    clientCAFile: /etc/kubernetes/pki/ca-bundle.crt
