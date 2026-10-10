@@ -1,4 +1,5 @@
 ---
+### REMOVE After 1.40
 - name: Fail if deprecated container_runtime_insecure_registries is set
   ansible.builtin.fail:
     msg: >-
