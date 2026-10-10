@@ -9,6 +9,77 @@
   ansible.builtin.set_fact:
     tempdir: "{{ tempdir.path }}"
 
+- name: Create etcd PKI directory
+  ansible.builtin.file:
+    path: /etc/kubernetes/pki/etcd
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Generate kubernetes CA before kubeadm init
+  ansible.builtin.command:
+    argv:
+    - kubeadm
+    - init
+    - phase
+    - certs
+    - ca
+    - --cert-dir
+    - /etc/kubernetes/pki
+  changed_when: true
+
+- name: Generate front-proxy CA before kubeadm init
+  ansible.builtin.command:
+    argv:
+    - kubeadm
+    - init
+    - phase
+    - certs
+    - front-proxy-ca
+    - --cert-dir
+    - /etc/kubernetes/pki
+  changed_when: true
+
+- name: Generate etcd CA before kubeadm init
+  ansible.builtin.command:
+    argv:
+    - kubeadm
+    - init
+    - phase
+    - certs
+    - etcd-ca
+    - --cert-dir
+    - /etc/kubernetes/pki
+  changed_when: true
+
+- name: Place etcd CA bundle from active CA
+  ansible.builtin.copy:
+    src: /etc/kubernetes/pki/etcd/ca.crt
+    dest: /etc/kubernetes/pki/etcd/ca-bundle.crt
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Place kubernetes CA bundle from active CA
+  ansible.builtin.copy:
+    src: /etc/kubernetes/pki/ca.crt
+    dest: /etc/kubernetes/pki/ca-bundle.crt
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Place front-proxy CA bundle from active CA
+  ansible.builtin.copy:
+    src: /etc/kubernetes/pki/front-proxy-ca.crt
+    dest: /etc/kubernetes/pki/front-proxy-ca-bundle.crt
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0644"
+
 - name: Generate initial kubeadm config
   ansible.builtin.template:
     src: kubeadm-config.yaml.j2
