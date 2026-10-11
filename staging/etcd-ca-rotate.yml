@@ -1,0 +1,757 @@
+---
+# etcd CA rotation for kubernetes masters.
+#
+# Stages:
+#   preflight: if old/ exists, a previous run was interrupted -> resume and
+#     skip the expiry check. Otherwise check CA expiry and exit when more
+#     than a year remains. Refuse when masters disagree on state.
+#   1. back up live CA into old/ via tmp/ + atomic rename. old/ is the sole
+#      resume signal (created first, deleted last) and must hold ca.crt +
+#      ca.key, enforced fail-closed.
+#   2. generate the new CA into new/ on the first master (tmp/ + rename;
+#      an existing new/ is reused, never regenerated) and distribute it to
+#      all masters. Skipped entirely when the bundle already exists. Live
+#      CAs must be byte-uniform across masters (fail-closed precondition
+#      for single-source bundles).
+#   3. build ca-bundle.crt once on the first master from staged-new +
+#      old-backup and distribute it to all masters.
+#   4. add/update the 3 etcd trust flags to the bundle in kubeadm-config
+#      via parsed v1beta4 merge. Absent flags mean kubeadm defaults: a
+#      valid starting state, not an error. No-op when already at bundle
+#      values, verified by re-read.
+#   5. rolling `kubeadm upgrade node` (serial), gated on etcd health
+#      (bundle trust) and apiserver readyz.
+#   6. per master, serial, with no play boundary in between: cut live CA
+#      over to new/, renew leaves not chaining to the new CA, prove files,
+#      restart etcd via a manifest annotation bump and prove it live
+#      (new-CA etcd health + readyz). apiserver is untouched here; it
+#      picks up its renewed etcd-client cert at stage 8.
+#   7. delete (not reset) the 3 etcd trust flags from kubeadm-config,
+#      restoring kubeadm defaults; empty extraArgs keys are dropped.
+#      Fail-closed on externally managed values, verified by re-read.
+#   8. rolling `kubeadm upgrade node` (serial); health via new-only trust,
+#      proving the cutover before bundles are removed.
+#   9. fail-closed unless manifests are free of the etcd bundle path, then
+#      remove bundle, new/, old/ (in that order) plus tmp/ leftovers.
+#
+# Idempotency: key+cert pairs are never copied in place. Both the backup and
+# the staged CA are assembled as complete pairs under tmp/ and appear
+# atomically via same-filesystem rename to old/ and new/. The only resume
+# signal is old/: it appears first and is deleted last, so any interruption
+# between stages resumes instead of exiting via the expiry gate. The
+# expiry check (>1y left -> do nothing) only runs on a clean cluster without
+# old/. An existing new/ is always reused, so a re-run never forks a second
+# new CA. tmp/ is scratch only, never a state marker.
+# Staging dirs are 0700, private keys always 0600.
+- name: Detect etcd CA rotation state and expiry (preflight)
+  hosts: master
+  gather_facts: false
+  any_errors_fatal: true
+  vars:
+    etcd_pki_dir: /etc/kubernetes/pki/etcd
+    etcd_live_crt: "{{ etcd_pki_dir }}/ca.crt"
+    etcd_old_dir: "{{ etcd_pki_dir }}/old"
+    etcd_expiry_threshold_seconds: 31536000
+  tasks:
+  - name: Check for in-progress rotation marker
+    ansible.builtin.stat:
+      path: "{{ etcd_old_dir }}"
+    register: etcd_old_dir_stat
+
+  - name: Verify backup contents (fail-closed)
+    when: etcd_old_dir_stat.stat.exists
+    ansible.builtin.stat:
+      path: "{{ item }}"
+    loop:
+    - "{{ etcd_old_dir }}/ca.crt"
+    - "{{ etcd_old_dir }}/ca.key"
+    register: etcd_old_content_stats
+
+  - name: Fail on incomplete backup
+    when:
+    - etcd_old_dir_stat.stat.exists
+    - etcd_old_content_stats.results | selectattr('stat.exists') | list | length != 2
+    ansible.builtin.fail:
+      msg: "{{ etcd_old_dir }} exists but does not contain both ca.crt and ca.key."
+
+  - name: Record rotation state
+    ansible.builtin.set_fact:
+      etcd_ca_rotation_in_progress: "{{ etcd_old_dir_stat.stat.exists }}"
+
+  # Frozen once here for the whole run: lookup('pipe', 'date …')
+  # re-evaluates per task otherwise. Reused for ConfigMap backup names
+  # (disambiguated by suffix) and manifest restart annotations.
+  - name: Freeze run timestamp
+    run_once: true
+    ansible.builtin.set_fact:
+      etcd_run_stamp: "{{ lookup('pipe', 'date +%Y%m%dT%H%M%S') }}"
+
+  - name: Check etcd CA expiry (clean clusters only)
+    when: not etcd_ca_rotation_in_progress
+    ansible.builtin.shell: >-
+      openssl x509 -checkend {{ etcd_expiry_threshold_seconds }}
+      -noout -in {{ etcd_live_crt }}
+    register: etcd_ca_expiry
+    failed_when: etcd_ca_expiry.rc > 1
+    changed_when: false
+
+  - name: Mark rotation needed (expiry within a year)
+    when: not etcd_ca_rotation_in_progress
+    ansible.builtin.set_fact:
+      etcd_ca_rotation_needed: "{{ etcd_ca_expiry.rc == 1 }}"
+
+  - name: Mark rotation needed (resume in-progress run)
+    when: etcd_ca_rotation_in_progress
+    ansible.builtin.set_fact:
+      etcd_ca_rotation_needed: true
+
+  - name: Announce resume
+    when: etcd_ca_rotation_in_progress
+    ansible.builtin.debug:
+      msg: "In-progress rotation detected ({{ etcd_old_dir }} present), resuming."
+
+  - name: Announce skip
+    when: not etcd_ca_rotation_needed
+    ansible.builtin.debug:
+      msg: "etcd CA valid for more than a year, nothing to do."
+
+  - name: Ensure uniform rotation state across masters
+    run_once: true
+    delegate_to: "{{ groups['master'][0] }}"
+    vars:
+      etcd_ca_states: >-
+        {{ groups['master'] | map('extract', hostvars, 'etcd_ca_rotation_in_progress') | list }}
+      etcd_ca_needs: >-
+        {{ groups['master'] | map('extract', hostvars, 'etcd_ca_rotation_needed') | list }}
+    ansible.builtin.fail:
+      msg: "Masters disagree on rotation state, refusing rotation."
+    when: (etcd_ca_states | unique | length != 1) or (etcd_ca_needs | unique | length != 1)
+
+- name: Stage old backup, new CA and bundle (stages 1-3)
+  hosts: master
+  gather_facts: false
+  any_errors_fatal: true
+  vars:
+    etcd_pki_dir: /etc/kubernetes/pki/etcd
+    etcd_first_master: "{{ groups['master'][0] }}"
+    etcd_live_crt: "{{ etcd_pki_dir }}/ca.crt"
+    etcd_live_key: "{{ etcd_pki_dir }}/ca.key"
+    etcd_old_dir: "{{ etcd_pki_dir }}/old"
+    etcd_new_dir: "{{ etcd_pki_dir }}/new"
+    etcd_tmp_dir: "{{ etcd_pki_dir }}/tmp"
+    etcd_old_crt: "{{ etcd_old_dir }}/ca.crt"
+    etcd_new_crt: "{{ etcd_new_dir }}/ca.crt"
+    etcd_new_key: "{{ etcd_new_dir }}/ca.key"
+    etcd_bundle_crt: "{{ etcd_pki_dir }}/ca-bundle.crt"
+    etcd_bundle_tmp: "{{ etcd_pki_dir }}/ca-bundle.crt.tmp"
+  tasks:
+  - name: End staging when no rotation needed
+    ansible.builtin.meta: end_play
+    when: not (etcd_ca_rotation_needed | default(false))
+
+  - name: Check bundle, staged new CA and backup dirs
+    ansible.builtin.stat:
+      path: "{{ item }}"
+    loop:
+    - "{{ etcd_bundle_crt }}"
+    - "{{ etcd_new_dir }}"
+    - "{{ etcd_old_dir }}"
+    register: etcd_stage_stats
+
+  - name: Record staging facts
+    ansible.builtin.set_fact:
+      etcd_bundle_exists: "{{ etcd_stage_stats.results[0].stat.exists }}"
+      etcd_new_exists: "{{ etcd_stage_stats.results[1].stat.exists }}"
+      etcd_old_exists: "{{ etcd_stage_stats.results[2].stat.exists }}"
+
+  - name: Check live CA uniformity across masters
+    ansible.builtin.stat:
+      path: "{{ item }}"
+      get_checksum: true
+      checksum_algorithm: sha256
+    loop:
+    - "{{ etcd_pki_dir }}/ca.crt"
+    - "{{ etcd_pki_dir }}/ca.key"
+    register: etcd_ca_sums
+    changed_when: false
+
+  - name: Fail on diverged live CAs across masters
+    run_once: true
+    delegate_to: "{{ etcd_first_master }}"
+    ansible.builtin.fail:
+      msg: "Live etcd CA differs between masters; refusing rotation (single-source bundles require byte-uniform CAs)."
+    when: groups['master'] | map('extract', hostvars, 'etcd_ca_sums') | map(attribute='results') | map('map', attribute='stat.checksum') | map('sort') | map('list') | unique | length != 1
+
+  # Stage 1. The pair is assembled under tmp/ and appears atomically via
+  # rename, so old/ either is absent or holds a complete backup. tmp/ is
+  # reset first, healing a resume after a crash mid-copy.
+  - name: Back up live etcd CA (stage 1)
+    when: not etcd_old_exists
+    block:
+    - name: Reset scratch dir
+      ansible.builtin.file:
+        path: "{{ etcd_tmp_dir }}"
+        state: absent
+
+    - name: Create scratch dir
+      ansible.builtin.file:
+        path: "{{ etcd_tmp_dir }}"
+        state: directory
+        mode: "0700"
+
+    - name: Copy live etcd CA into scratch dir
+      ansible.builtin.copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        remote_src: true
+        mode: "{{ item.mode }}"
+      loop:
+      - {src: "{{ etcd_live_crt }}", dest: "{{ etcd_tmp_dir }}/ca.crt", mode: "0644"}
+      - {src: "{{ etcd_live_key }}", dest: "{{ etcd_tmp_dir }}/ca.key", mode: "0600"}
+
+    - name: Publish backup dir
+      ansible.builtin.command:
+        argv:
+        - mv
+        - "{{ etcd_tmp_dir }}"
+        - "{{ etcd_old_dir }}"
+
+  # Stages 2+3 combined: bundle present implies the new CA is present, so
+  # generation is skipped. Otherwise the existing new/ is reused; only a
+  # missing new/ on the first master triggers generation, published
+  # atomically the same way as the backup.
+  - name: Generate new etcd CA on first master (stage 2)
+    when:
+    - inventory_hostname == etcd_first_master
+    - not hostvars[etcd_first_master]['etcd_bundle_exists']
+    - not hostvars[etcd_first_master]['etcd_new_exists']
+    block:
+    - name: Reset scratch dir
+      ansible.builtin.file:
+        path: "{{ etcd_tmp_dir }}"
+        state: absent
+
+    - name: Create scratch dir
+      ansible.builtin.file:
+        path: "{{ etcd_tmp_dir }}"
+        state: directory
+        mode: "0700"
+
+    - name: Generate new etcd CA
+      ansible.builtin.command:
+        argv:
+        - kubeadm
+        - init
+        - phase
+        - certs
+        - etcd-ca
+        - --cert-dir
+        - "{{ etcd_tmp_dir }}"
+      # kubeadm appends etcd/ to the cert dir; result is <tmp>/etcd/ca.crt|key
+
+    - name: Fix staged key permissions
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        mode: "{{ item.mode }}"
+      loop:
+      - {path: "{{ etcd_tmp_dir }}/etcd/ca.crt", mode: "0644"}
+      - {path: "{{ etcd_tmp_dir }}/etcd/ca.key", mode: "0600"}
+
+    - name: Publish staged new CA dir
+      ansible.builtin.shell: "mv {{ etcd_tmp_dir }}/etcd {{ etcd_new_dir }} && rmdir {{ etcd_tmp_dir }}"
+
+  - name: Fail on bundle without staged new CA
+    when:
+    - hostvars[etcd_first_master]['etcd_bundle_exists']
+    - not hostvars[etcd_first_master]['etcd_new_exists']
+    ansible.builtin.fail:
+      msg: "Bundle exists on {{ etcd_first_master }} but {{ etcd_new_crt }} is missing."
+
+  - name: Slurp staged new CA cert
+    run_once: true
+    delegate_to: "{{ etcd_first_master }}"
+    ansible.builtin.slurp:
+      src: "{{ etcd_new_crt }}"
+    register: etcd_new_crt_content
+    no_log: true
+
+  - name: Slurp staged new CA key
+    run_once: true
+    delegate_to: "{{ etcd_first_master }}"
+    ansible.builtin.slurp:
+      src: "{{ etcd_new_key }}"
+    register: etcd_new_key_content
+    no_log: true
+
+  - name: Ensure staged new CA dir
+    ansible.builtin.file:
+      path: "{{ etcd_new_dir }}"
+      state: directory
+      mode: "0700"
+
+  - name: Distribute staged new CA (stage 2)
+    ansible.builtin.copy:
+      content: "{{ item.content }}"
+      dest: "{{ item.dest }}"
+      mode: "{{ item.mode }}"
+    loop_control:
+      label: "{{ item.dest }}"
+    loop:
+    - {content: "{{ etcd_new_crt_content.content | b64decode }}", dest: "{{ etcd_new_crt }}", mode: "0644"}
+    - {content: "{{ etcd_new_key_content.content | b64decode }}", dest: "{{ etcd_new_key }}", mode: "0600"}
+
+  - name: Clear staged new CA buffers
+    ansible.builtin.set_fact:
+      etcd_new_crt_content: ""
+      etcd_new_key_content: ""
+      etcd_bundle_content: ""
+
+  # Built once on the first master from stable inputs (staged-new +
+  # old-backup), never from live, then distributed fleet-wide: identical
+  # bytes everywhere, which the uniformity gate above makes safe.
+  - name: Build etcd CA bundle on first master (stage 3)
+    when: inventory_hostname == etcd_first_master and not hostvars[etcd_first_master]['etcd_bundle_exists']
+    ansible.builtin.shell: "cat {{ etcd_new_crt }} {{ etcd_old_crt }} > {{ etcd_bundle_tmp }} && chmod 0644 {{ etcd_bundle_tmp }} && mv {{ etcd_bundle_tmp }} {{ etcd_bundle_crt }}"
+
+  - name: Slurp etcd CA bundle
+    run_once: true
+    delegate_to: "{{ etcd_first_master }}"
+    ansible.builtin.slurp:
+      src: "{{ etcd_bundle_crt }}"
+    register: etcd_bundle_content
+    no_log: true
+
+  - name: Distribute etcd CA bundle (stage 3)
+    ansible.builtin.copy:
+      content: "{{ etcd_bundle_content.content | b64decode }}"
+      dest: "{{ etcd_bundle_crt }}"
+      mode: "0644"
+
+- name: Point kubeadm-config at etcd CA bundle (stage 4)
+  hosts: master
+  gather_facts: false
+  any_errors_fatal: true
+  vars:
+    etcd_pki_dir: /etc/kubernetes/pki/etcd
+    etcd_first_master: "{{ groups['master'][0] }}"
+    etcd_live_crt: "{{ etcd_pki_dir }}/ca.crt"
+    etcd_bundle_crt: "{{ etcd_pki_dir }}/ca-bundle.crt"
+  tasks:
+  - name: End bundle wiring when no rotation needed
+    ansible.builtin.meta: end_play
+    when: not (etcd_ca_rotation_needed | default(false))
+
+  - name: Read kubeadm-config ConfigMap
+    run_once: true
+    delegate_to: "{{ etcd_first_master }}"
+    ansible.builtin.command:
+      argv:
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - cm
+      - kubeadm-config
+      - -o
+      - yaml
+    register: etcd_cm_raw
+    changed_when: false
+
+  - name: Parse ClusterConfiguration
+    run_once: true
+    ansible.builtin.set_fact:
+      etcd_cm_cluster_config: "{{ (etcd_cm_raw.stdout | from_yaml).data.ClusterConfiguration | from_yaml }}"
+
+  - name: Fail when ClusterConfiguration is not v1beta4
+    run_once: true
+    ansible.builtin.fail:
+      msg: >-
+        kubeadm-config ClusterConfiguration apiVersion is
+        '{{ etcd_cm_cluster_config.get('apiVersion', 'unknown') }}',
+        etcd CA rotation requires v1beta4 (list-style extraArgs).
+    when: "'v1beta4' not in (etcd_cm_cluster_config.get('apiVersion', '') | string)"
+
+  # Absent flags mean kubeadm defaults (live ca.crt): a valid pre-bundle
+  # state that needs patching, not an error.
+  - name: Read current etcd trust extraArgs
+    run_once: true
+    ansible.builtin.set_fact:
+      etcd_cm_api_extra: "{{ (((etcd_cm_cluster_config.get('apiServer', None) or {}).get('extraArgs', None) or []) | selectattr('name', 'defined') | items2dict(key_name='name', value_name='value')) }}"
+      etcd_cm_etcd_extra: "{{ (((((etcd_cm_cluster_config.get('etcd', None) or {}).get('local', None) or {}).get('extraArgs', None) or [])) | selectattr('name', 'defined') | items2dict(key_name='name', value_name='value')) }}"
+
+  - name: Resolve current etcd trust flags
+    run_once: true
+    ansible.builtin.set_fact:
+      etcd_cm_trust_current:
+        etcd-cafile: "{{ etcd_cm_api_extra.get('etcd-cafile', etcd_live_crt) }}"
+        trusted-ca-file: "{{ etcd_cm_etcd_extra.get('trusted-ca-file', etcd_live_crt) }}"
+        peer-trusted-ca-file: "{{ etcd_cm_etcd_extra.get('peer-trusted-ca-file', etcd_live_crt) }}"
+
+  - name: Patch kubeadm-config etcd trust to bundle
+    when: "inventory_hostname == etcd_first_master and (etcd_cm_trust_current.values() | list | select('ne', etcd_bundle_crt) | list | length != 0)"
+    block:
+    - name: Compute patched extraArgs
+      ansible.builtin.set_fact:
+        etcd_cm_api_extra_new: "{{ (etcd_cm_api_extra | combine({'etcd-cafile': etcd_bundle_crt}) | dict2items(key_name='name', value_name='value')) }}"
+        etcd_cm_etcd_extra_new: "{{ (etcd_cm_etcd_extra | combine({'trusted-ca-file': etcd_bundle_crt, 'peer-trusted-ca-file': etcd_bundle_crt}) | dict2items(key_name='name', value_name='value')) }}"
+
+    - name: Merge patched trust into ClusterConfiguration
+      ansible.builtin.set_fact:
+        etcd_cm_patched_config: "{{ etcd_cm_cluster_config | combine({'apiServer': ((etcd_cm_cluster_config.get('apiServer', None) or {}) | combine({'extraArgs': etcd_cm_api_extra_new}))}, recursive=True) | combine({'etcd': ((etcd_cm_cluster_config.get('etcd', None) or {}) | combine({'local': (((etcd_cm_cluster_config.get('etcd', None) or {}).get('local', None) or {}) | combine({'extraArgs': etcd_cm_etcd_extra_new}))}))}, recursive=True) }}"
+
+    - name: Back up current kubeadm-config ConfigMap
+      ansible.builtin.copy:
+        content: "{{ etcd_cm_raw.stdout }}\n"
+        dest: "/etc/kubernetes/kubeadm-config-backup-{{ etcd_run_stamp }}-etcd-rotate-bundle.yaml"
+        owner: root
+        group: root
+        mode: "0600"
+
+    # No staging files: the manifest goes to kubectl via stdin (-f -).
+    - name: Send patched kubeadm-config to cluster
+      ansible.builtin.command:
+        argv:
+        - kubectl
+        - apply
+        - -f
+        - "-"
+        stdin: "{{ (etcd_cm_raw.stdout | from_yaml | combine({'data': {'ClusterConfiguration': etcd_cm_patched_config | to_nice_yaml(indent=2)}}, recursive=True)) | to_yaml }}"
+      register: etcd_cm_apply
+      changed_when: true
+
+    - name: Verify persisted ClusterConfiguration
+      ansible.builtin.command:
+        argv:
+        - kubectl
+        - -n
+        - kube-system
+        - get
+        - cm
+        - kubeadm-config
+        - -o
+        - 'jsonpath={.data.ClusterConfiguration}'
+      register: etcd_cm_verify_raw
+      changed_when: false
+
+    - name: Parse persisted etcd trust flags
+      ansible.builtin.set_fact:
+        etcd_cm_api_extra_v: "{{ (((etcd_cm_verify_raw.stdout | from_yaml).get('apiServer', None) or {}).get('extraArgs', None) or []) | selectattr('name', 'defined') | items2dict(key_name='name', value_name='value') }}"
+        etcd_cm_etcd_extra_v: "{{ (((((etcd_cm_verify_raw.stdout | from_yaml).get('etcd', None) or {}).get('local', None) or {}).get('extraArgs', None) or [])) | selectattr('name', 'defined') | items2dict(key_name='name', value_name='value') }}"
+
+    - name: Fail when bundle trust flags did not stick
+      ansible.builtin.fail:
+        msg: "Patched ClusterConfiguration was not persisted in kubeadm-config."
+      when: "etcd_cm_api_extra_v.get('etcd-cafile') != etcd_bundle_crt or etcd_cm_etcd_extra_v.get('trusted-ca-file') != etcd_bundle_crt or etcd_cm_etcd_extra_v.get('peer-trusted-ca-file') != etcd_bundle_crt"
+
+- name: Rolling upgrade node, bundle trust (stage 5)
+  hosts: master
+  gather_facts: false
+  any_errors_fatal: true
+  serial: 1
+  vars:
+    etcd_pki_dir: /etc/kubernetes/pki/etcd
+  tasks:
+  - name: End first rollout when no rotation needed
+    ansible.builtin.meta: end_play
+    when: not (etcd_ca_rotation_needed | default(false))
+
+  - name: kubeadm upgrade node
+    ansible.builtin.command: kubeadm upgrade node
+
+- name: Cut over live etcd CA and renew leaves (stage 6)
+  hosts: master
+  gather_facts: false
+  any_errors_fatal: true
+  serial: 1
+  vars:
+    etcd_pki_dir: /etc/kubernetes/pki/etcd
+    etcd_new_crt: "{{ etcd_pki_dir }}/new/ca.crt"
+    etcd_leaf_certs:
+    - {name: "etcd-server", file: "{{ etcd_pki_dir }}/server.crt"}
+    - {name: "etcd-peer", file: "{{ etcd_pki_dir }}/peer.crt"}
+    - {name: "etcd-healthcheck-client", file: "{{ etcd_pki_dir }}/healthcheck-client.crt"}
+    - {name: "apiserver-etcd-client", file: "/etc/kubernetes/pki/apiserver-etcd-client.crt"}
+  tasks:
+  - name: End renewal when no rotation needed
+    ansible.builtin.meta: end_play
+    when: not (etcd_ca_rotation_needed | default(false))
+
+  # copy is content-aware: no change reported when already cut over, and a
+  # resume after a crash between the two copies heals the pair. Runs
+  # back-to-back with renewal per master (serial), so no play boundary sits
+  # between promotion and renewal.
+  - name: Overwrite live etcd CA with new CA
+    ansible.builtin.copy:
+      src: "{{ etcd_pki_dir }}/{{ item.src }}"
+      dest: "{{ etcd_pki_dir }}/{{ item.dest }}"
+      remote_src: true
+      mode: "{{ item.mode }}"
+    loop:
+    - {src: "new/ca.crt", dest: "ca.crt", mode: "0644"}
+    - {src: "new/ca.key", dest: "ca.key", mode: "0600"}
+
+  # Skip renewal for leaves already signed by the new CA (resume safe).
+  - name: Check leaf signatures against new CA
+    ansible.builtin.command:
+      argv:
+      - openssl
+      - verify
+      - -CAfile
+      - "{{ etcd_new_crt }}"
+      - "{{ item.file }}"
+    loop: "{{ etcd_leaf_certs }}"
+    loop_control:
+      label: "{{ item.name }}"
+    register: etcd_leaf_verify
+    failed_when: false
+    changed_when: false
+
+  - name: Renew leaves not signed by new CA
+    ansible.builtin.command:
+      argv:
+      - kubeadm
+      - certs
+      - renew
+      - "{{ item.item.name }}"
+    loop: "{{ etcd_leaf_verify.results }}"
+    loop_control:
+      label: "{{ item.item.name }}"
+    when: item.rc != 0
+    register: etcd_leaf_renew
+
+  - name: Prove all leaves chain to new CA (fail-closed)
+    ansible.builtin.command:
+      argv:
+      - openssl
+      - verify
+      - -CAfile
+      - "{{ etcd_new_crt }}"
+      - "{{ item.file }}"
+    loop: "{{ etcd_leaf_certs }}"
+    loop_control:
+      label: "{{ item.name }}"
+    changed_when: false
+
+  # etcd reads leaves at startup only, so the renewed pair takes effect via
+  # a kubelet-driven restart, triggered by a semantically-null annotation
+  # bump on etcd.yaml (the only kubelet-native restart trigger available
+  # without CRI tooling). copy is content-aware: same stamp on resume means
+  # no rewrite and no duplicate restart. kube-apiserver.yaml is deliberately
+  # untouched: apiserver keeps serving with its old etcd-client cert, which
+  # the bundle-trusting etcd still accepts, and picks up the renewed one at
+  # stage 8, where the flag revert guarantees a manifest change and restart
+  # (proven by the new-only health gate there).
+  - name: Read etcd manifest
+    ansible.builtin.slurp:
+      src: /etc/kubernetes/manifests/etcd.yaml
+    register: etcd_manifest_raw
+    changed_when: false
+    no_log: true
+
+  - name: Bump etcd manifest restart annotation
+    ansible.builtin.copy:
+      content: "{{ ((etcd_manifest_raw.content | b64decode | from_yaml) | combine({'metadata': {'annotations': {'etcd-ca-rotate': etcd_run_stamp}}}, recursive=True) | to_nice_yaml(indent=2)) }}"
+      dest: /etc/kubernetes/manifests/etcd.yaml
+      owner: root
+      group: root
+      mode: "0600"
+
+  # New-only trust: passes only if the running etcd actually serves the
+  # renewed leaves, proving the restart picked them up. The on-disk state
+  # was already proven by the openssl gate above.
+  - name: Wait for etcd health (new CA trust, proves pickup)
+    ansible.builtin.uri:
+      url: https://127.0.0.1:2379/health
+      ca_path: "{{ etcd_pki_dir }}/ca.crt"
+      client_cert: "{{ etcd_pki_dir }}/server.crt"
+      client_key: "{{ etcd_pki_dir }}/server.key"
+      return_content: true
+      timeout: 5
+    register: etcd_health
+    until: etcd_health.status == 200 and '"health":"true"' in etcd_health.content
+    retries: 60
+    delay: 5
+
+  - name: Wait until apiserver becomes ready
+    ansible.builtin.uri:
+      url: "https://127.0.0.1:6443/readyz"
+      timeout: 1
+      validate_certs: false
+    register: apiserver_readyz
+    until: apiserver_readyz.status == 200
+    retries: 120
+    delay: 5
+
+- name: Remove etcd trust flags from kubeadm-config (stage 7)
+  hosts: master
+  gather_facts: false
+  any_errors_fatal: true
+  vars:
+    etcd_pki_dir: /etc/kubernetes/pki/etcd
+    etcd_first_master: "{{ groups['master'][0] }}"
+    etcd_live_crt: "{{ etcd_pki_dir }}/ca.crt"
+    etcd_bundle_crt: "{{ etcd_pki_dir }}/ca-bundle.crt"
+  tasks:
+  - name: End revert when no rotation needed
+    ansible.builtin.meta: end_play
+    when: not (etcd_ca_rotation_needed | default(false))
+
+  - name: Read kubeadm-config ConfigMap
+    run_once: true
+    delegate_to: "{{ etcd_first_master }}"
+    ansible.builtin.command:
+      argv:
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - cm
+      - kubeadm-config
+      - -o
+      - yaml
+    register: etcd_cm_raw
+    changed_when: false
+
+  - name: Parse ClusterConfiguration
+    run_once: true
+    ansible.builtin.set_fact:
+      etcd_cm_cluster_config: "{{ (etcd_cm_raw.stdout | from_yaml).data.ClusterConfiguration | from_yaml }}"
+
+  # No v1beta4 assert here: stage 4 already proved it in every execution
+  # (plays run in order, apiVersion is never mutated, any_errors_fatal
+  # aborts the run otherwise).
+  # Absent flags mean kubeadm defaults (live ca.crt): already reverted.
+  - name: Read current etcd trust extraArgs
+    run_once: true
+    ansible.builtin.set_fact:
+      etcd_cm_api_extra: "{{ (((etcd_cm_cluster_config.get('apiServer', None) or {}).get('extraArgs', None) or []) | selectattr('name', 'defined') | items2dict(key_name='name', value_name='value')) }}"
+      etcd_cm_etcd_extra: "{{ (((((etcd_cm_cluster_config.get('etcd', None) or {}).get('local', None) or {}).get('extraArgs', None) or [])) | selectattr('name', 'defined') | items2dict(key_name='name', value_name='value')) }}"
+
+  - name: Patch kubeadm-config etcd trust back to defaults
+    when: "inventory_hostname == etcd_first_master and ('etcd-cafile' in etcd_cm_api_extra or 'trusted-ca-file' in etcd_cm_etcd_extra or 'peer-trusted-ca-file' in etcd_cm_etcd_extra)"
+    block:
+    - name: Fail on externally managed etcd trust flags
+      ansible.builtin.fail:
+        msg: "kubeadm-config etcd trust flags point outside this rotation (neither bundle nor live CA); refusing to delete them."
+      when: "etcd_cm_api_extra.get('etcd-cafile', etcd_bundle_crt) not in [etcd_bundle_crt, etcd_live_crt] or etcd_cm_etcd_extra.get('trusted-ca-file', etcd_bundle_crt) not in [etcd_bundle_crt, etcd_live_crt] or etcd_cm_etcd_extra.get('peer-trusted-ca-file', etcd_bundle_crt) not in [etcd_bundle_crt, etcd_live_crt]"
+
+    - name: Compute pruned extraArgs lists
+      ansible.builtin.set_fact:
+        etcd_cm_api_extra_new: "{{ etcd_cm_api_extra | dict2items(key_name='name', value_name='value') | rejectattr('name', 'equalto', 'etcd-cafile') | list }}"
+        etcd_cm_etcd_extra_new: "{{ etcd_cm_etcd_extra | dict2items(key_name='name', value_name='value') | rejectattr('name', 'equalto', 'trusted-ca-file') | rejectattr('name', 'equalto', 'peer-trusted-ca-file') | list }}"
+
+    - name: Compute sections without etcd trust flags
+      ansible.builtin.set_fact:
+        etcd_cm_api_section_new: "{{ ((etcd_cm_cluster_config.get('apiServer', None) or {}) | combine({'extraArgs': etcd_cm_api_extra_new})) if (etcd_cm_api_extra_new | length > 0) else ((etcd_cm_cluster_config.get('apiServer', None) or {}) | dict2items | rejectattr('key', 'equalto', 'extraArgs') | items2dict) }}"
+        etcd_cm_etcd_section_new: "{{ ((etcd_cm_cluster_config.get('etcd', None) or {}) | combine({'local': (((etcd_cm_cluster_config.get('etcd', None) or {}).get('local', None) or {}) | combine({'extraArgs': etcd_cm_etcd_extra_new}))})) if (etcd_cm_etcd_extra_new | length > 0) else ((etcd_cm_cluster_config.get('etcd', None) or {}) | combine({'local': (((etcd_cm_cluster_config.get('etcd', None) or {}).get('local', None) or {}) | dict2items | rejectattr('key', 'equalto', 'extraArgs') | items2dict)})) }}"
+
+    # Top-level (non-recursive) combine: the two sections are swapped in
+    # wholesale. A recursive merge could never delete the pruned keys, the
+    # base values would silently survive.
+    - name: Merge pruned trust into ClusterConfiguration
+      ansible.builtin.set_fact:
+        etcd_cm_patched_config: "{{ etcd_cm_cluster_config | combine({'apiServer': etcd_cm_api_section_new}) | combine({'etcd': etcd_cm_etcd_section_new}) }}"
+
+    - name: Back up current kubeadm-config ConfigMap
+      ansible.builtin.copy:
+        content: "{{ etcd_cm_raw.stdout }}\n"
+        dest: "/etc/kubernetes/kubeadm-config-backup-{{ etcd_run_stamp }}-etcd-rotate-revert.yaml"
+        owner: root
+        group: root
+        mode: "0600"
+
+    # No staging files: the manifest goes to kubectl via stdin (-f -).
+    - name: Send pruned kubeadm-config to cluster
+      ansible.builtin.command:
+        argv:
+        - kubectl
+        - apply
+        - -f
+        - "-"
+        stdin: "{{ (etcd_cm_raw.stdout | from_yaml | combine({'data': {'ClusterConfiguration': etcd_cm_patched_config | to_nice_yaml(indent=2)}}, recursive=True)) | to_yaml }}"
+      register: etcd_cm_apply
+      changed_when: true
+
+    - name: Verify persisted ClusterConfiguration
+      ansible.builtin.command:
+        argv:
+        - kubectl
+        - -n
+        - kube-system
+        - get
+        - cm
+        - kubeadm-config
+        - -o
+        - 'jsonpath={.data.ClusterConfiguration}'
+      register: etcd_cm_verify_raw
+      changed_when: false
+
+    - name: Parse persisted etcd trust flags
+      ansible.builtin.set_fact:
+        etcd_cm_api_extra_v: "{{ (((etcd_cm_verify_raw.stdout | from_yaml).get('apiServer', None) or {}).get('extraArgs', None) or []) | selectattr('name', 'defined') | items2dict(key_name='name', value_name='value') }}"
+        etcd_cm_etcd_extra_v: "{{ (((((etcd_cm_verify_raw.stdout | from_yaml).get('etcd', None) or {}).get('local', None) or {}).get('extraArgs', None) or [])) | selectattr('name', 'defined') | items2dict(key_name='name', value_name='value') }}"
+
+    - name: Fail when trust flags were not removed
+      ansible.builtin.fail:
+        msg: "Pruned ClusterConfiguration was not persisted in kubeadm-config."
+      when: "etcd_cm_api_extra_v.get('etcd-cafile') is not none or etcd_cm_etcd_extra_v.get('trusted-ca-file') is not none or etcd_cm_etcd_extra_v.get('peer-trusted-ca-file') is not none"
+
+- name: Rolling upgrade node, new-only trust (stage 8)
+  hosts: master
+  gather_facts: false
+  any_errors_fatal: true
+  serial: 1
+  vars:
+    etcd_pki_dir: /etc/kubernetes/pki/etcd
+  tasks:
+  - name: End final rollout when no rotation needed
+    ansible.builtin.meta: end_play
+    when: not (etcd_ca_rotation_needed | default(false))
+
+  - name: kubeadm upgrade node
+    ansible.builtin.command: kubeadm upgrade node
+
+- name: Cleanup staging files (stage 9)
+  hosts: master
+  gather_facts: false
+  any_errors_fatal: true
+  vars:
+    etcd_pki_dir: /etc/kubernetes/pki/etcd
+  tasks:
+  - name: End cleanup when no rotation needed
+    ansible.builtin.meta: end_play
+    when: not (etcd_ca_rotation_needed | default(false))
+
+  - name: Fail if manifests still reference the etcd bundle (fail-closed)
+    ansible.builtin.shell: "grep -r -F '{{ etcd_pki_dir }}/ca-bundle.crt' /etc/kubernetes/manifests/"
+    register: etcd_manifest_bundle_refs
+    failed_when: etcd_manifest_bundle_refs.rc != 1
+    changed_when: false
+
+  - name: Remove bundle and staged new CA
+    ansible.builtin.file:
+      path: "{{ item }}"
+      state: absent
+    loop:
+    - "{{ etcd_pki_dir }}/ca-bundle.crt"
+    - "{{ etcd_pki_dir }}/ca-bundle.crt.tmp"
+    - "{{ etcd_pki_dir }}/new"
+
+  # Deleted last so old/ stays a valid resume signal throughout.
+  - name: Remove old CA backup and scratch dir
+    ansible.builtin.file:
+      path: "{{ item }}"
+      state: absent
+    loop:
+    - "{{ etcd_pki_dir }}/old"
+    - "{{ etcd_pki_dir }}/tmp"
+
+  - name: Show final etcd expiration
+    ansible.builtin.command:
+      argv:
+      - kubeadm
+      - certs
+      - check-expiration
+      - --cert-dir
+      - "{{ etcd_pki_dir }}"
+    changed_when: false
