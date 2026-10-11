@@ -10,6 +10,16 @@
   - kubernetes/prepare-cni-check
   - upgrade/kubeadm
 
+# Migrate pre-bundle clusters to CA bundles (skips bundle-aware clusters).
+# Runs before the upgrades so the rollout below picks up the patched
+# kubeadm-config/kubelet-config and the staged bundle files.
+- name: Migrate pre-bundle clusters to CA bundles
+  hosts: cluster
+  gather_facts: false
+  any_errors_fatal: true
+  roles:
+  - kubernetes/ca-bundle-migration
+
 - name: Upgrade master kubernetes nodes
   hosts: master
   serial: 1

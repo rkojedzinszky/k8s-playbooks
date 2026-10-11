@@ -1,0 +1,259 @@
+# Migrates a pre-bundle cluster to CA bundles.
+#
+# Invoked for the whole cluster from upgrade-cluster.yml, before any node is
+# upgraded, so the rollout below picks up the patched kubeadm-config and
+# kubelet-config together with the staged bundle files. Freshly initialized
+# clusters end the play immediately (kubeadm_configs_count == 0); clusters
+# whose ClusterConfiguration already defines any CA trust path are reported
+# and skipped via a second early exit. The rest of the role is unconditional.
+#
+# Cluster interaction (ConfigMap reads, patches, verifications) runs on
+# chosen_master only. Bundle files land on masters via local copies and on
+# every other host via distribution from chosen_master, last.
+---
+- name: Skip bundle migration on freshly initialized clusters
+  ansible.builtin.meta: end_play
+  when: "kubeadm_configs_count | default('1') | int == 0"
+
+- name: Read kubeadm-config ConfigMap
+  run_once: true
+  delegate_to: "{{ chosen_master }}"
+  ansible.builtin.command:
+    argv:
+    - kubectl
+    - -n
+    - kube-system
+    - get
+    - cm
+    - kubeadm-config
+    - -o
+    - yaml
+  register: ca_bundle_mig_configmap_raw
+  changed_when: false
+
+- name: Parse ClusterConfiguration
+  run_once: true
+  ansible.builtin.set_fact:
+    ca_bundle_mig_cluster_config: "{{ (ca_bundle_mig_configmap_raw.stdout | from_yaml).data.ClusterConfiguration | from_yaml }}"
+
+- name: Fail when ClusterConfiguration is not v1beta4
+  run_once: true
+  ansible.builtin.fail:
+    msg: >-
+      kubeadm-config ClusterConfiguration apiVersion is
+      '{{ ca_bundle_mig_cluster_config.get('apiVersion', 'unknown') }}',
+      bundle migration requires v1beta4 (list-style extraArgs).
+  when: "'v1beta4' not in (ca_bundle_mig_cluster_config.get('apiVersion', '') | string)"
+
+# Any CA trust path anywhere in the control-plane extraArgs (ca.crt,
+# ca-bundle.crt, or an externally managed path) means this cluster is not a
+# clean pre-bundle state: skip the whole migration.
+- name: Collect all control-plane extraArgs values
+  run_once: true
+  ansible.builtin.set_fact:
+    ca_bundle_mig_extra_values: >-
+      {%- set cfg = ca_bundle_mig_cluster_config %}
+      {%- set ns = namespace(vals=[]) %}
+      {%- for section in [cfg.get('apiServer', {}) or {}, cfg.get('controllerManager', {}) or {}, cfg.get('scheduler', {}) or {}, ((cfg.get('etcd', {}) or {}).get('local', {}) or {})] %}
+      {%- for entry in (section.get('extraArgs', None) or []) %}
+      {%- if entry.get('value', None) is not none %}
+      {%- set ns.vals = ns.vals + [(entry.get('value') | string)] %}
+      {%- endif %}
+      {%- endfor %}
+      {%- endfor %}
+      {{- ns.vals }}
+
+- name: Report skipped migration
+  run_once: true
+  ansible.builtin.debug:
+    msg: "Cluster CA trust already manages CA paths, skipping bundle migration."
+  when: ca_bundle_mig_extra_values | select('search', 'ca\.crt|ca-bundle') | list | length != 0
+
+- name: End play when cluster CA trust already manages CA paths
+  ansible.builtin.meta: end_play
+  when: ca_bundle_mig_extra_values | select('search', 'ca\.crt|ca-bundle') | list | length != 0
+
+- name: Patch cluster CA trust configuration
+  run_once: true
+  block:
+  - name: Extract apiServer, controllerManager and etcd sections
+    ansible.builtin.set_fact:
+      ca_bundle_mig_api_section: "{{ ca_bundle_mig_cluster_config.get('apiServer', {}) }}"
+      ca_bundle_mig_cm_section: "{{ ca_bundle_mig_cluster_config.get('controllerManager', {}) }}"
+      ca_bundle_mig_etcd_section: "{{ ca_bundle_mig_cluster_config.get('etcd', {}) }}"
+      ca_bundle_mig_etcd_local_section: "{{ ca_bundle_mig_cluster_config.get('etcd', {}).get('local', {}) }}"
+
+  - name: Compute new apiServer extraArgs
+    ansible.builtin.set_fact:
+      ca_bundle_mig_api_extra_new: >-
+        {%- set base = ((ca_bundle_mig_api_section.get('extraArgs', None) or []) | selectattr('name', 'defined') | items2dict(key_name='name', value_name='value')) %}
+        {%- set merged = base | combine({'etcd-cafile': '/etc/kubernetes/pki/etcd/ca-bundle.crt', 'client-ca-file': '/etc/kubernetes/pki/ca-bundle.crt', 'requestheader-client-ca-file': '/etc/kubernetes/pki/front-proxy-ca-bundle.crt'}) %}
+        {{- (merged | dict2items(key_name='name', value_name='value')) }}
+
+  - name: Compute new controllerManager extraArgs
+    ansible.builtin.set_fact:
+      ca_bundle_mig_cm_extra_new: >-
+        {%- set base = ((ca_bundle_mig_cm_section.get('extraArgs', None) or []) | selectattr('name', 'defined') | items2dict(key_name='name', value_name='value')) %}
+        {%- set merged = base | combine({'root-ca-file': '/etc/kubernetes/pki/ca-bundle.crt', 'client-ca-file': '/etc/kubernetes/pki/ca-bundle.crt', 'requestheader-client-ca-file': '/etc/kubernetes/pki/front-proxy-ca-bundle.crt'}) %}
+        {{- (merged | dict2items(key_name='name', value_name='value')) }}
+
+  - name: Compute new etcd local extraArgs
+    ansible.builtin.set_fact:
+      ca_bundle_mig_etcd_extra_new: >-
+        {%- set base = ((ca_bundle_mig_etcd_local_section.get('extraArgs', None) or []) | selectattr('name', 'defined') | items2dict(key_name='name', value_name='value')) %}
+        {%- set merged = base | combine({'trusted-ca-file': '/etc/kubernetes/pki/etcd/ca-bundle.crt', 'peer-trusted-ca-file': '/etc/kubernetes/pki/etcd/ca-bundle.crt'}) %}
+        {{- (merged | dict2items(key_name='name', value_name='value')) }}
+
+  - name: Merge bundle trust files into ClusterConfiguration
+    ansible.builtin.set_fact:
+      ca_bundle_mig_patched_config: "{{ ca_bundle_mig_cluster_config | combine({'apiServer': ca_bundle_mig_api_section | combine({'extraArgs': ca_bundle_mig_api_extra_new})}, recursive=True) | combine({'controllerManager': ca_bundle_mig_cm_section | combine({'extraArgs': ca_bundle_mig_cm_extra_new})}, recursive=True) | combine({'etcd': ca_bundle_mig_etcd_section | combine({'local': ca_bundle_mig_etcd_local_section | combine({'extraArgs': ca_bundle_mig_etcd_extra_new})})}, recursive=True) }}"
+
+  - name: Back up current kubeadm-config ConfigMap
+    ansible.builtin.copy:
+      content: "{{ ca_bundle_mig_configmap_raw.stdout }}\n"
+      dest: "/etc/kubernetes/kubeadm-config-backup-{{ lookup('pipe', 'date +%Y%m%dT%H%M%S') }}.yaml"
+      owner: root
+      group: root
+      mode: "0600"
+
+  # No staging files: the manifest goes to kubectl via stdin (-f -).
+  - name: Send patched kubeadm-config to cluster
+    delegate_to: "{{ chosen_master }}"
+    ansible.builtin.command:
+      argv:
+      - kubectl
+      - apply
+      - -f
+      - "-"
+      stdin: "{{ (ca_bundle_mig_configmap_raw.stdout | from_yaml | combine({'data': {'ClusterConfiguration': ca_bundle_mig_patched_config | to_nice_yaml(indent=2)}}, recursive=True)) | to_yaml }}"
+    register: ca_bundle_mig_apply
+    changed_when: true
+
+  - name: Verify ClusterConfiguration now points at bundles
+    delegate_to: "{{ chosen_master }}"
+    ansible.builtin.command:
+      argv:
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - cm
+      - kubeadm-config
+      - -o
+      - 'jsonpath={.data.ClusterConfiguration}'
+    register: ca_bundle_mig_verify_raw
+    changed_when: false
+
+  - name: Fail when bundle trust flags did not stick
+    ansible.builtin.fail:
+      msg: "Patched ClusterConfiguration was not persisted in kubeadm-config."
+    when: "'ca-bundle.crt' not in ca_bundle_mig_verify_raw.stdout or 'front-proxy-ca-bundle.crt' not in ca_bundle_mig_verify_raw.stdout"
+
+- name: Point cluster kubelet configuration at CA bundle
+  run_once: true
+  block:
+  - name: Read kubelet-config ConfigMap
+    delegate_to: "{{ chosen_master }}"
+    ansible.builtin.command:
+      argv:
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - cm
+      - kubelet-config
+      - -o
+      - yaml
+    register: ca_bundle_mig_kubelet_raw
+    changed_when: false
+
+  - name: Merge bundle clientCAFile into KubeletConfiguration
+    ansible.builtin.set_fact:
+      ca_bundle_mig_kubelet_new: "{{ (ca_bundle_mig_kubelet_raw.stdout | from_yaml).data.kubelet | from_yaml | combine({'authentication': {'x509': {'clientCAFile': '/etc/kubernetes/pki/ca-bundle.crt'}}}, recursive=True) }}"
+
+  - name: Back up current kubelet-config ConfigMap
+    ansible.builtin.copy:
+      content: "{{ ca_bundle_mig_kubelet_raw.stdout }}\n"
+      dest: "/etc/kubernetes/kubelet-config-backup-{{ lookup('pipe', 'date +%Y%m%dT%H%M%S') }}.yaml"
+      owner: root
+      group: root
+      mode: "0600"
+
+  - name: Send patched kubelet-config to cluster
+    delegate_to: "{{ chosen_master }}"
+    ansible.builtin.command:
+      argv:
+      - kubectl
+      - apply
+      - -f
+      - "-"
+      stdin: "{{ (ca_bundle_mig_kubelet_raw.stdout | from_yaml | combine({'data': {'kubelet': ca_bundle_mig_kubelet_new | to_nice_yaml(indent=2)}}, recursive=True)) | to_yaml }}"
+    register: ca_bundle_mig_kubelet_apply
+    changed_when: true
+
+  - name: Verify kubelet configuration now points at bundle
+    delegate_to: "{{ chosen_master }}"
+    ansible.builtin.command:
+      argv:
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - cm
+      - kubelet-config
+      - -o
+      - 'jsonpath={.data.kubelet}'
+    register: ca_bundle_mig_kubelet_verify_raw
+    changed_when: false
+
+  - name: Fail when bundle clientCAFile did not stick
+    ansible.builtin.fail:
+      msg: "Patched KubeletConfiguration was not persisted in kubelet-config."
+    when: "'/etc/kubernetes/pki/ca-bundle.crt' not in ca_bundle_mig_kubelet_verify_raw.stdout"
+
+- name: Place CA bundles from active CAs on masters
+  when: "'master' in group_names"
+  block:
+  - name: Place etcd CA bundle from active CA
+    ansible.builtin.copy:
+      src: /etc/kubernetes/pki/etcd/ca.crt
+      dest: /etc/kubernetes/pki/etcd/ca-bundle.crt
+      remote_src: true
+      owner: root
+      group: root
+      mode: "0644"
+
+  - name: Place kubernetes CA bundle from active CA
+    ansible.builtin.copy:
+      src: /etc/kubernetes/pki/ca.crt
+      dest: /etc/kubernetes/pki/ca-bundle.crt
+      remote_src: true
+      owner: root
+      group: root
+      mode: "0644"
+
+  - name: Place front-proxy CA bundle from active CA
+    ansible.builtin.copy:
+      src: /etc/kubernetes/pki/front-proxy-ca.crt
+      dest: /etc/kubernetes/pki/front-proxy-ca-bundle.crt
+      remote_src: true
+      owner: root
+      group: root
+      mode: "0644"
+
+- name: Distribute Kubernetes CA bundle to workers
+  when: "'master' not in group_names"
+  block:
+  - name: Read Kubernetes CA bundle from chosen master
+    delegate_to: "{{ chosen_master }}"
+    ansible.builtin.slurp:
+      src: /etc/kubernetes/pki/ca-bundle.crt
+    register: ca_bundle_mig_dist_slurp
+
+  - name: Place Kubernetes CA bundle on worker
+    ansible.builtin.copy:
+      content: "{{ ca_bundle_mig_dist_slurp.content | b64decode }}"
+      dest: /etc/kubernetes/pki/ca-bundle.crt
+      owner: root
+      group: root
+      mode: "0644"
