@@ -1,0 +1,705 @@
+---
+# Staging (part 1) of kubernetes + front-proxy CA rotation.
+#
+# The open trust domain (kubeconfigs, user clients, aggregated APIs pin
+# these CAs outside the masters) forces a two-part rotation with an
+# operator gap of days to weeks in between: this playbook stages new CAs
+# and dual-trust bundles everywhere WITHOUT changing what is served or
+# restarting anything, then stops. The operator publishes the bundles to
+# all users, settles them into running processes with upgrade-cluster.yml
+# + reboot-nodes.yml, and only then runs api-ca-activate.yml (cutover +
+# re-issue).
+#
+# Stages:
+#   preflight: if old/ exists, a previous run was interrupted -> resume and
+#     skip the expiry check. Otherwise stage when EITHER CA has less than a
+#     year left (both CAs always rotate together). Refuse when masters
+#     disagree on state or live CAs differ byte-wise.
+#   1. back up both live CA pairs into old/ via tmp/ + atomic rename.
+#      old/ is the sole resume signal (created first, deleted last in
+#      part 2) and must hold all four files, enforced fail-closed.
+#   2. generate both new CA pairs into new/ on the first master (assembled
+#      under tmp/, published with a single rename; an existing new/ is
+#      reused, never regenerated) and distribute new/ to all masters.
+#      CA keys never reach workers. Skipped entirely when bundles exist.
+#   3. in a dedicated cluster-wide play, assemble both bundles in Ansible
+#      (slurped staged-new + old-backup, exact bytes, never live) and
+#      place ca-bundle.crt on the whole cluster plus
+#      front-proxy-ca-bundle.crt on masters only. Unconditional copies:
+#      unchanged content reports ok.
+#   4. embed ca-bundle.crt in kubelet.conf's cluster CA data on every node,
+#      so kubelets trust old+new once restarted. No kubelet is restarted
+#      here: running processes keep the old trust until the operator reboot.
+#   5. wire bundle flags via parsed v1beta4 merges (absent flags mean
+#      kubeadm defaults: a valid starting state, not an error): apiserver
+#      client-ca-file + requestheader-client-ca-file, controller-manager
+#      root-ca-file + client-ca-file + requestheader-client-ca-file, and
+#      kubelet-config clientCAFile. No-op when already at bundle values,
+#      verified by re-read. etcd flags are never touched.
+#   6. hand off to the operator, restarting nothing: upgrade-cluster.yml
+#      settles the patched ConfigMaps into node-local configs, but it does
+#      NOT restart kubelets. reboot-nodes.yml is therefore mandatory: it
+#      restarts kubelets so the embedded bundle and updated kubelet config
+#      take effect, and restarts pods into dual trust (see the final play).
+#      Serving certs stay old-signed throughout: zero trust change.
+#
+# Idempotency: pairs are assembled under tmp/ and appear atomically via
+# same-filesystem rename. An existing new/ is always reused. tmp/ is
+# scratch only, never a state marker. kubelet.conf is rewritten only when
+# its embedded CA differs from the local ca-bundle.crt. Staging dirs are
+# 0700, private keys always 0600. Workers hold no CA keys and no markers:
+# file copies there simply converge.
+- name: Detect staging state and CA expiry (preflight)
+  hosts: master
+  gather_facts: false
+  any_errors_fatal: true
+  vars:
+    k8s_pki_dir: /etc/kubernetes/pki
+    k8s_ca_crt: "{{ k8s_pki_dir }}/ca.crt"
+    k8s_fp_crt: "{{ k8s_pki_dir }}/front-proxy-ca.crt"
+    k8s_old_dir: "{{ k8s_pki_dir }}/old"
+    k8s_expiry_threshold_seconds: 31536000
+  tasks:
+  - name: Check for in-progress staging marker
+    ansible.builtin.stat:
+      path: "{{ k8s_old_dir }}"
+    register: k8s_old_dir_stat
+
+  - name: Verify backup contents (fail-closed)
+    when: k8s_old_dir_stat.stat.exists
+    ansible.builtin.stat:
+      path: "{{ item }}"
+    loop:
+    - "{{ k8s_old_dir }}/ca.crt"
+    - "{{ k8s_old_dir }}/ca.key"
+    - "{{ k8s_old_dir }}/front-proxy-ca.crt"
+    - "{{ k8s_old_dir }}/front-proxy-ca.key"
+    register: k8s_old_content_stats
+
+  - name: Fail on incomplete backup
+    when:
+    - k8s_old_dir_stat.stat.exists
+    - k8s_old_content_stats.results | selectattr('stat.exists') | list | length != 4
+    ansible.builtin.fail:
+      msg: "{{ k8s_old_dir }} exists but does not contain both CA pairs."
+
+  - name: Record staging state
+    ansible.builtin.set_fact:
+      k8s_ca_staging_in_progress: "{{ k8s_old_dir_stat.stat.exists }}"
+
+  - name: Check CA expiries (clean clusters only)
+    when: not k8s_ca_staging_in_progress
+    ansible.builtin.shell: "openssl x509 -checkend {{ k8s_expiry_threshold_seconds }} -noout -in {{ item }}"
+    loop:
+    - "{{ k8s_ca_crt }}"
+    - "{{ k8s_fp_crt }}"
+    loop_control:
+      label: "{{ item }}"
+    register: k8s_ca_expiry
+    failed_when: k8s_ca_expiry.rc > 1
+    changed_when: false
+
+  - name: Record staging need
+    ansible.builtin.set_fact:
+      k8s_ca_rotation_needed: "{{ k8s_ca_staging_in_progress or (k8s_ca_expiry.results | default([]) | selectattr('rc', 'equalto', 1) | list | length > 0) }}"
+
+  - name: Announce resume
+    when: k8s_ca_staging_in_progress
+    ansible.builtin.debug:
+      msg: "In-progress staging detected ({{ k8s_old_dir }} present), resuming."
+
+  - name: Announce skip
+    when: not k8s_ca_rotation_needed
+    ansible.builtin.debug:
+      msg: "Both CAs valid for more than a year, nothing to do."
+
+  - name: Check live CA uniformity across masters
+    when: k8s_ca_rotation_needed | default(false)
+    ansible.builtin.stat:
+      path: "{{ item }}"
+      get_checksum: true
+      checksum_algorithm: sha256
+    loop:
+    - "{{ k8s_pki_dir }}/ca.crt"
+    - "{{ k8s_pki_dir }}/ca.key"
+    - "{{ k8s_pki_dir }}/front-proxy-ca.crt"
+    - "{{ k8s_pki_dir }}/front-proxy-ca.key"
+    register: k8s_ca_sums
+    changed_when: false
+
+  - name: Fail on diverged live CAs across masters
+    run_once: true
+    delegate_to: "{{ groups['master'][0] }}"
+    ansible.builtin.fail:
+      msg: "Live CAs differ between masters; refusing rotation (single-source bundles require byte-uniform CAs)."
+    when: k8s_ca_rotation_needed | default(false) and (groups['master'] | map('extract', hostvars, 'k8s_ca_sums') | map(attribute='results') | map('map', attribute='stat.checksum') | map('sort') | map('list') | unique | length != 1)
+
+  # Frozen once here for the whole run: lookup('pipe', 'date …')
+  # re-evaluates per task otherwise.
+  - name: Freeze run timestamp
+    run_once: true
+    ansible.builtin.set_fact:
+      k8s_run_stamp: "{{ lookup('pipe', 'date +%Y%m%dT%H%M%S') }}"
+
+- name: Stage old backup and new CAs (stages 1-2)
+  hosts: master
+  gather_facts: false
+  any_errors_fatal: true
+  vars:
+    k8s_pki_dir: /etc/kubernetes/pki
+    k8s_first_master: "{{ groups['master'][0] }}"
+    k8s_live_ca_crt: "{{ k8s_pki_dir }}/ca.crt"
+    k8s_live_ca_key: "{{ k8s_pki_dir }}/ca.key"
+    k8s_live_fp_crt: "{{ k8s_pki_dir }}/front-proxy-ca.crt"
+    k8s_live_fp_key: "{{ k8s_pki_dir }}/front-proxy-ca.key"
+    k8s_old_dir: "{{ k8s_pki_dir }}/old"
+    k8s_new_dir: "{{ k8s_pki_dir }}/new"
+    k8s_tmp_dir: "{{ k8s_pki_dir }}/tmp"
+    k8s_new_ca_crt: "{{ k8s_new_dir }}/ca.crt"
+    k8s_new_ca_key: "{{ k8s_new_dir }}/ca.key"
+    k8s_new_fp_crt: "{{ k8s_new_dir }}/front-proxy-ca.crt"
+    k8s_new_fp_key: "{{ k8s_new_dir }}/front-proxy-ca.key"
+    k8s_bundle_crt: "{{ k8s_pki_dir }}/ca-bundle.crt"
+    k8s_fp_bundle_crt: "{{ k8s_pki_dir }}/front-proxy-ca-bundle.crt"
+  tasks:
+  - name: End staging when no rotation needed
+    ansible.builtin.meta: end_play
+    when: not (k8s_ca_rotation_needed | default(false))
+
+  - name: Check bundles, staged new CAs and backup dir
+    ansible.builtin.stat:
+      path: "{{ item }}"
+    loop:
+    - "{{ k8s_bundle_crt }}"
+    - "{{ k8s_fp_bundle_crt }}"
+    - "{{ k8s_new_dir }}"
+    - "{{ k8s_old_dir }}"
+    register: k8s_stage_stats
+
+  - name: Record staging facts
+    ansible.builtin.set_fact:
+      k8s_bundle_exists: "{{ k8s_stage_stats.results[0].stat.exists }}"
+      k8s_fp_bundle_exists: "{{ k8s_stage_stats.results[1].stat.exists }}"
+      k8s_new_exists: "{{ k8s_stage_stats.results[2].stat.exists }}"
+      k8s_old_exists: "{{ k8s_stage_stats.results[3].stat.exists }}"
+
+  # Fail fast on inconsistent staged state before touching anything. A
+  # bundle only implies staged CAs mid-rotation (old/ present); on a clean
+  # cluster with steady-state bundles, generation below starts normally.
+  - name: Fail on bundles without staged new CAs
+    when: (hostvars[k8s_first_master]['k8s_bundle_exists'] or hostvars[k8s_first_master]['k8s_fp_bundle_exists']) and not hostvars[k8s_first_master]['k8s_new_exists'] and hostvars[k8s_first_master]['k8s_old_exists']
+    ansible.builtin.fail:
+      msg: "A bundle exists on {{ k8s_first_master }} but {{ k8s_new_dir }} is missing."
+
+  - name: Fail on staged new CAs without backup
+    when: hostvars[k8s_first_master]['k8s_new_exists'] and not hostvars[k8s_first_master]['k8s_old_exists']
+    ansible.builtin.fail:
+      msg: "{{ k8s_new_dir }} exists on {{ k8s_first_master }} without a {{ k8s_old_dir }} backup; refusing to build bundles from an untracked pair."
+
+  # Stage 1. Both pairs are assembled under tmp/ and appear atomically via
+  # a single rename, so old/ either is absent or holds a complete backup.
+  # tmp/ is reset first, healing a resume after a crash mid-copy.
+  - name: Back up live CAs (stage 1)
+    when: not k8s_old_exists
+    block:
+    - name: Reset scratch dir
+      ansible.builtin.file:
+        path: "{{ k8s_tmp_dir }}"
+        state: absent
+
+    - name: Create scratch dir
+      ansible.builtin.file:
+        path: "{{ k8s_tmp_dir }}"
+        state: directory
+        mode: "0700"
+
+    - name: Copy live CAs into scratch dir
+      ansible.builtin.copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        remote_src: true
+        mode: "{{ item.mode }}"
+      loop:
+      - {src: "{{ k8s_live_ca_crt }}", dest: "{{ k8s_tmp_dir }}/ca.crt", mode: "0644"}
+      - {src: "{{ k8s_live_ca_key }}", dest: "{{ k8s_tmp_dir }}/ca.key", mode: "0600"}
+      - {src: "{{ k8s_live_fp_crt }}", dest: "{{ k8s_tmp_dir }}/front-proxy-ca.crt", mode: "0644"}
+      - {src: "{{ k8s_live_fp_key }}", dest: "{{ k8s_tmp_dir }}/front-proxy-ca.key", mode: "0600"}
+
+    - name: Publish backup dir
+      ansible.builtin.command:
+        argv:
+        - mv
+        - "{{ k8s_tmp_dir }}"
+        - "{{ k8s_old_dir }}"
+
+  # Stage 2: generate unless new/ is already staged. An existing bundle
+  # skips generation only mid-rotation (old/ present); on a clean cluster
+  # with steady-state bundles, generation starts normally (fail tasks above
+  # already rejected the inconsistent states).
+  - name: Generate new CAs on first master (stage 2)
+    when:
+    - inventory_hostname == k8s_first_master
+    - not hostvars[k8s_first_master]['k8s_new_exists']
+    - not hostvars[k8s_first_master]['k8s_bundle_exists'] or not hostvars[k8s_first_master]['k8s_old_exists']
+    block:
+    - name: Reset scratch dir
+      ansible.builtin.file:
+        path: "{{ k8s_tmp_dir }}"
+        state: absent
+
+    - name: Create scratch dir
+      ansible.builtin.file:
+        path: "{{ k8s_tmp_dir }}"
+        state: directory
+        mode: "0700"
+
+    - name: Generate new kubernetes CA
+      ansible.builtin.command:
+        argv:
+        - kubeadm
+        - init
+        - phase
+        - certs
+        - ca
+        - --cert-dir
+        - "{{ k8s_tmp_dir }}"
+      # kubeadm writes ca.crt|key directly here (no subdir, unlike etcd-ca)
+
+    - name: Generate new front-proxy CA
+      ansible.builtin.command:
+        argv:
+        - kubeadm
+        - init
+        - phase
+        - certs
+        - front-proxy-ca
+        - --cert-dir
+        - "{{ k8s_tmp_dir }}"
+
+    - name: Fix staged key permissions
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        mode: "{{ item.mode }}"
+      loop:
+      - {path: "{{ k8s_tmp_dir }}/ca.crt", mode: "0644"}
+      - {path: "{{ k8s_tmp_dir }}/ca.key", mode: "0600"}
+      - {path: "{{ k8s_tmp_dir }}/front-proxy-ca.crt", mode: "0644"}
+      - {path: "{{ k8s_tmp_dir }}/front-proxy-ca.key", mode: "0600"}
+
+    - name: Publish staged new CA dir
+      ansible.builtin.command:
+        argv:
+        - mv
+        - "{{ k8s_tmp_dir }}"
+        - "{{ k8s_new_dir }}"
+
+  - name: Slurp staged new CA files
+    run_once: true
+    delegate_to: "{{ k8s_first_master }}"
+    ansible.builtin.slurp:
+      src: "{{ item }}"
+    loop:
+    - "{{ k8s_new_ca_crt }}"
+    - "{{ k8s_new_ca_key }}"
+    - "{{ k8s_new_fp_crt }}"
+    - "{{ k8s_new_fp_key }}"
+    register: k8s_new_slurp
+
+  - name: Ensure staged new CA dir
+    ansible.builtin.file:
+      path: "{{ k8s_new_dir }}"
+      state: directory
+      mode: "0700"
+
+  # Keys stay on masters only: workers receive bundle files, never new/.
+  - name: Distribute staged new CAs to masters (stage 2)
+    ansible.builtin.copy:
+      content: "{{ item.content }}"
+      dest: "{{ item.dest }}"
+      mode: "{{ item.mode }}"
+    loop_control:
+      label: "{{ item.dest }}"
+    loop:
+    - {content: "{{ k8s_new_slurp.results[0].content | b64decode }}", dest: "{{ k8s_new_ca_crt }}", mode: "0644"}
+    - {content: "{{ k8s_new_slurp.results[1].content | b64decode }}", dest: "{{ k8s_new_ca_key }}", mode: "0600"}
+    - {content: "{{ k8s_new_slurp.results[2].content | b64decode }}", dest: "{{ k8s_new_fp_crt }}", mode: "0644"}
+    - {content: "{{ k8s_new_slurp.results[3].content | b64decode }}", dest: "{{ k8s_new_fp_key }}", mode: "0600"}
+
+  - name: Clear staged new CA buffers
+    ansible.builtin.set_fact:
+      k8s_new_slurp: ""
+
+- name: Build and distribute CA bundles (stage 3)
+  hosts: cluster
+  gather_facts: false
+  any_errors_fatal: true
+  vars:
+    k8s_pki_dir: /etc/kubernetes/pki
+    k8s_first_master: "{{ groups['master'][0] }}"
+    k8s_old_dir: "{{ k8s_pki_dir }}/old"
+    k8s_new_dir: "{{ k8s_pki_dir }}/new"
+    k8s_new_ca_crt: "{{ k8s_new_dir }}/ca.crt"
+    k8s_new_fp_crt: "{{ k8s_new_dir }}/front-proxy-ca.crt"
+    k8s_old_ca_crt: "{{ k8s_old_dir }}/ca.crt"
+    k8s_old_fp_crt: "{{ k8s_old_dir }}/front-proxy-ca.crt"
+    k8s_bundle_crt: "{{ k8s_pki_dir }}/ca-bundle.crt"
+    k8s_fp_bundle_crt: "{{ k8s_pki_dir }}/front-proxy-ca-bundle.crt"
+  tasks:
+  - name: End bundle build when no rotation needed
+    ansible.builtin.meta: end_play
+    when: not (hostvars[groups['master'][0]]['k8s_ca_rotation_needed'] | default(false))
+
+  - name: Slurp old and new CA certs on first master
+    run_once: true
+    delegate_to: "{{ k8s_first_master }}"
+    ansible.builtin.slurp:
+      src: "{{ item }}"
+    loop:
+    - "{{ k8s_new_ca_crt }}"
+    - "{{ k8s_old_ca_crt }}"
+    - "{{ k8s_new_fp_crt }}"
+    - "{{ k8s_old_fp_crt }}"
+    register: k8s_ca_slurp
+
+  - name: Place kubernetes CA bundle cluster-wide (stage 3)
+    ansible.builtin.copy:
+      content: "{{ k8s_ca_slurp.results[0].content | b64decode }}{{ k8s_ca_slurp.results[1].content | b64decode }}"
+      dest: "{{ k8s_bundle_crt }}"
+      owner: root
+      group: root
+      mode: "0644"
+
+  - name: Place front-proxy CA bundle on masters (stage 3)
+    when: "'master' in group_names"
+    ansible.builtin.copy:
+      content: "{{ k8s_ca_slurp.results[2].content | b64decode }}{{ k8s_ca_slurp.results[3].content | b64decode }}"
+      dest: "{{ k8s_fp_bundle_crt }}"
+      owner: root
+      group: root
+      mode: "0644"
+
+# kubelet reads this kubeconfig at startup only: embed the bundle now, the
+# operator reboot later is what puts dual trust into the running processes.
+- name: Embed CA bundle in kubelet kubeconfigs (stage 4)
+  hosts: cluster
+  gather_facts: false
+  any_errors_fatal: true
+  vars:
+    k8s_pki_dir: /etc/kubernetes/pki
+    k8s_kubelet_kubeconfig: /etc/kubernetes/kubelet.conf
+    k8s_bundle_crt: "{{ k8s_pki_dir }}/ca-bundle.crt"
+  tasks:
+  - name: End kubelet kubeconfig update when no rotation needed
+    ansible.builtin.meta: end_play
+    when: not (hostvars[groups['master'][0]]['k8s_ca_rotation_needed'] | default(false))
+
+  - name: Check kubelet kubeconfig and CA bundle
+    ansible.builtin.stat:
+      path: "{{ item }}"
+    loop:
+    - "{{ k8s_kubelet_kubeconfig }}"
+    - "{{ k8s_bundle_crt }}"
+    register: k8s_kubelet_conf_stats
+
+  - name: Fail when kubelet kubeconfig or CA bundle is missing
+    when: k8s_kubelet_conf_stats.results | selectattr('stat.exists') | list | length != 2
+    ansible.builtin.fail:
+      msg: "{{ k8s_kubelet_kubeconfig }} or {{ k8s_bundle_crt }} is missing; refusing to embed an incomplete trust bundle."
+
+  - name: Resolve kubelet kubeconfig cluster name
+    ansible.builtin.command:
+      argv:
+      - kubectl
+      - --kubeconfig
+      - "{{ k8s_kubelet_kubeconfig }}"
+      - config
+      - view
+      - --minify
+      - -o
+      - 'jsonpath={.contexts[0].context.cluster}'
+    register: k8s_kubelet_cluster_name
+    changed_when: false
+
+  - name: Fail when kubelet kubeconfig has no current cluster
+    when: k8s_kubelet_cluster_name.stdout | length == 0
+    ansible.builtin.fail:
+      msg: "{{ k8s_kubelet_kubeconfig }} has no current cluster entry."
+
+  - name: Read kubelet trust bundle
+    ansible.builtin.slurp:
+      src: "{{ k8s_bundle_crt }}"
+    register: k8s_bundle_slurp
+
+  - name: Read embedded kubelet CA data
+    ansible.builtin.command:
+      argv:
+      - kubectl
+      - --kubeconfig
+      - "{{ k8s_kubelet_kubeconfig }}"
+      - config
+      - view
+      - --raw
+      - --minify
+      - -o
+      - 'jsonpath={.clusters[0].cluster.certificate-authority-data}'
+    register: k8s_kubelet_embedded_ca
+    changed_when: false
+
+  - name: Embed CA bundle in kubelet kubeconfig
+    when: (k8s_kubelet_embedded_ca.stdout | b64decode) != (k8s_bundle_slurp.content | b64decode)
+    ansible.builtin.command:
+      argv:
+      - kubectl
+      - --kubeconfig
+      - "{{ k8s_kubelet_kubeconfig }}"
+      - config
+      - set-cluster
+      - "{{ k8s_kubelet_cluster_name.stdout }}"
+      - --certificate-authority
+      - "{{ k8s_bundle_crt }}"
+      - --embed-certs=true
+
+  - name: Restrict kubelet kubeconfig permissions
+    ansible.builtin.file:
+      path: "{{ k8s_kubelet_kubeconfig }}"
+      owner: root
+      group: root
+      mode: "0600"
+
+  - name: Re-read embedded kubelet CA data
+    ansible.builtin.command:
+      argv:
+      - kubectl
+      - --kubeconfig
+      - "{{ k8s_kubelet_kubeconfig }}"
+      - config
+      - view
+      - --raw
+      - --minify
+      - -o
+      - 'jsonpath={.clusters[0].cluster.certificate-authority-data}'
+    register: k8s_kubelet_embedded_ca_verify
+    changed_when: false
+
+  - name: Fail when kubelet does not embed the CA bundle
+    when: (k8s_kubelet_embedded_ca_verify.stdout | b64decode) != (k8s_bundle_slurp.content | b64decode)
+    ansible.builtin.fail:
+      msg: "{{ k8s_kubelet_kubeconfig }} does not embed {{ k8s_bundle_crt }}."
+
+- name: Point configs at CA bundles (stage 5)
+  hosts: master
+  gather_facts: false
+  any_errors_fatal: true
+  vars:
+    k8s_pki_dir: /etc/kubernetes/pki
+    k8s_first_master: "{{ groups['master'][0] }}"
+    k8s_bundle_crt: "{{ k8s_pki_dir }}/ca-bundle.crt"
+    k8s_fp_bundle_crt: "{{ k8s_pki_dir }}/front-proxy-ca-bundle.crt"
+    k8s_live_crt: "{{ k8s_pki_dir }}/ca.crt"
+    k8s_live_fp_crt: "{{ k8s_pki_dir }}/front-proxy-ca.crt"
+    k8s_default_client_ca: "{{ k8s_pki_dir }}/ca.crt"
+  tasks:
+  - name: End bundle wiring when no rotation needed
+    ansible.builtin.meta: end_play
+    when: not (k8s_ca_rotation_needed | default(false))
+
+  - name: Read kubeadm-config ConfigMap
+    run_once: true
+    delegate_to: "{{ k8s_first_master }}"
+    ansible.builtin.command:
+      argv:
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - cm
+      - kubeadm-config
+      - -o
+      - yaml
+    register: k8s_cm_raw
+    changed_when: false
+
+  - name: Parse ClusterConfiguration
+    run_once: true
+    ansible.builtin.set_fact:
+      k8s_cm_cluster_config: "{{ (k8s_cm_raw.stdout | from_yaml).data.ClusterConfiguration | from_yaml }}"
+
+  - name: Fail when ClusterConfiguration is not v1beta4
+    run_once: true
+    ansible.builtin.fail:
+      msg: >-
+        kubeadm-config ClusterConfiguration apiVersion is
+        '{{ k8s_cm_cluster_config.get('apiVersion', 'unknown') }}',
+        CA staging requires v1beta4 (list-style extraArgs).
+    when: "'v1beta4' not in (k8s_cm_cluster_config.get('apiVersion', '') | string)"
+
+  # Absent flags mean kubeadm defaults: a valid pre-bundle state that needs
+  # wiring, not an error. etcd flags are never touched here.
+  - name: Read current trust extraArgs
+    run_once: true
+    ansible.builtin.set_fact:
+      k8s_cm_api_extra: "{{ (((k8s_cm_cluster_config.get('apiServer', None) or {}).get('extraArgs', None) or []) | selectattr('name', 'defined') | items2dict(key_name='name', value_name='value')) }}"
+      k8s_cm_cm_extra: "{{ (((k8s_cm_cluster_config.get('controllerManager', None) or {}).get('extraArgs', None) or []) | selectattr('name', 'defined') | items2dict(key_name='name', value_name='value')) }}"
+
+  - name: Read kubelet-config ConfigMap
+    run_once: true
+    delegate_to: "{{ k8s_first_master }}"
+    ansible.builtin.command:
+      argv:
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - cm
+      - kubelet-config
+      - -o
+      - yaml
+    register: k8s_kubelet_raw
+    changed_when: false
+
+  - name: Parse kubelet configuration
+    run_once: true
+    ansible.builtin.set_fact:
+      k8s_kubelet_config: "{{ (k8s_kubelet_raw.stdout | from_yaml).data.kubelet | from_yaml }}"
+
+  - name: Resolve kubelet client CA path
+    run_once: true
+    ansible.builtin.set_fact:
+      k8s_kubelet_client_ca: "{{ ((k8s_kubelet_config.get('authentication', None) or {}).get('x509', None) or {}).get('clientCAFile') }}"
+
+  - name: Patch configs to bundles
+    when: "inventory_hostname == k8s_first_master and (k8s_cm_api_extra.get('client-ca-file', k8s_live_crt) != k8s_bundle_crt or k8s_cm_api_extra.get('requestheader-client-ca-file', k8s_live_fp_crt) != k8s_fp_bundle_crt or k8s_cm_cm_extra.get('root-ca-file', k8s_live_crt) != k8s_bundle_crt or k8s_cm_cm_extra.get('client-ca-file', k8s_live_crt) != k8s_bundle_crt or k8s_cm_cm_extra.get('requestheader-client-ca-file', k8s_live_fp_crt) != k8s_fp_bundle_crt or k8s_kubelet_client_ca != k8s_bundle_crt)"
+    block:
+    - name: Fail on externally managed trust flags
+      ansible.builtin.fail:
+        msg: "Cluster trust flags point outside this rotation (neither bundle nor live CA paths); refusing to overwrite them."
+      when: "k8s_cm_api_extra.get('client-ca-file', k8s_bundle_crt) not in [k8s_bundle_crt, k8s_live_crt] or k8s_cm_api_extra.get('requestheader-client-ca-file', k8s_fp_bundle_crt) not in [k8s_fp_bundle_crt, k8s_live_fp_crt] or k8s_cm_cm_extra.get('root-ca-file', k8s_bundle_crt) not in [k8s_bundle_crt, k8s_live_crt] or k8s_cm_cm_extra.get('client-ca-file', k8s_bundle_crt) not in [k8s_bundle_crt, k8s_live_crt] or k8s_cm_cm_extra.get('requestheader-client-ca-file', k8s_fp_bundle_crt) not in [k8s_fp_bundle_crt, k8s_live_fp_crt] or k8s_kubelet_client_ca | default(k8s_bundle_crt, true) not in [k8s_bundle_crt, k8s_default_client_ca]"
+
+    - name: Compute patched apiServer extraArgs
+      ansible.builtin.set_fact:
+        k8s_cm_api_extra_new: "{{ (k8s_cm_api_extra | combine({'client-ca-file': k8s_bundle_crt, 'requestheader-client-ca-file': k8s_fp_bundle_crt}) | dict2items(key_name='name', value_name='value')) }}"
+        k8s_cm_cm_extra_new: "{{ (k8s_cm_cm_extra | combine({'root-ca-file': k8s_bundle_crt, 'client-ca-file': k8s_bundle_crt, 'requestheader-client-ca-file': k8s_fp_bundle_crt}) | dict2items(key_name='name', value_name='value')) }}"
+        k8s_kubelet_new: "{{ k8s_kubelet_config | combine({'authentication': {'x509': {'clientCAFile': k8s_bundle_crt}}}, recursive=True) }}"
+
+    - name: Merge patched trust into ClusterConfiguration
+      ansible.builtin.set_fact:
+        k8s_cm_patched_config: "{{ k8s_cm_cluster_config | combine({'apiServer': ((k8s_cm_cluster_config.get('apiServer', None) or {}) | combine({'extraArgs': k8s_cm_api_extra_new}))}, recursive=True) | combine({'controllerManager': ((k8s_cm_cluster_config.get('controllerManager', None) or {}) | combine({'extraArgs': k8s_cm_cm_extra_new}))}, recursive=True) }}"
+
+    - name: Back up current ConfigMaps
+      ansible.builtin.copy:
+        content: "{{ item.content }}"
+        dest: "{{ item.dest }}"
+        owner: root
+        group: root
+        mode: "0600"
+      loop_control:
+        label: "{{ item.dest }}"
+      loop:
+      - {content: "{{ k8s_cm_raw.stdout }}\n", dest: "/etc/kubernetes/kubeadm-config-backup-{{ k8s_run_stamp }}-api-ca-stage.yaml"}
+      - {content: "{{ k8s_kubelet_raw.stdout }}\n", dest: "/etc/kubernetes/kubelet-config-backup-{{ k8s_run_stamp }}-api-ca-stage.yaml"}
+
+    - name: Send patched kubeadm-config to cluster
+      ansible.builtin.command:
+        argv:
+        - kubectl
+        - apply
+        - -f
+        - "-"
+        stdin: "{{ (k8s_cm_raw.stdout | from_yaml | combine({'data': {'ClusterConfiguration': k8s_cm_patched_config | to_nice_yaml(indent=2)}}, recursive=True)) | to_yaml }}"
+      register: k8s_cm_apply
+      changed_when: true
+
+    - name: Send patched kubelet-config to cluster
+      ansible.builtin.command:
+        argv:
+        - kubectl
+        - apply
+        - -f
+        - "-"
+        stdin: "{{ (k8s_kubelet_raw.stdout | from_yaml | combine({'data': {'kubelet': k8s_kubelet_new | to_nice_yaml(indent=2)}}, recursive=True)) | to_yaml }}"
+      register: k8s_kubelet_apply
+      changed_when: true
+
+  - name: Verify persisted ClusterConfiguration
+    run_once: true
+    delegate_to: "{{ k8s_first_master }}"
+    ansible.builtin.command:
+      argv:
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - cm
+      - kubeadm-config
+      - -o
+      - 'jsonpath={.data.ClusterConfiguration}'
+    register: k8s_cm_verify_raw
+    changed_when: false
+
+  - name: Verify persisted kubelet configuration
+    run_once: true
+    delegate_to: "{{ k8s_first_master }}"
+    ansible.builtin.command:
+      argv:
+      - kubectl
+      - -n
+      - kube-system
+      - get
+      - cm
+      - kubelet-config
+      - -o
+      - 'jsonpath={.data.kubelet}'
+    register: k8s_kubelet_verify_raw
+    changed_when: false
+
+  - name: Parse persisted trust flags
+    run_once: true
+    ansible.builtin.set_fact:
+      k8s_cm_api_extra_v: "{{ (((k8s_cm_verify_raw.stdout | from_yaml).get('apiServer', None) or {}).get('extraArgs', None) or []) | selectattr('name', 'defined') | items2dict(key_name='name', value_name='value') }}"
+      k8s_cm_cm_extra_v: "{{ (((k8s_cm_verify_raw.stdout | from_yaml).get('controllerManager', None) or {}).get('extraArgs', None) or []) | selectattr('name', 'defined') | items2dict(key_name='name', value_name='value') }}"
+      k8s_kubelet_verified: "{{ k8s_kubelet_verify_raw.stdout | from_yaml }}"
+
+  - name: Resolve persisted kubelet client CA path
+    run_once: true
+    ansible.builtin.set_fact:
+      k8s_kubelet_ca_verified: "{{ ((k8s_kubelet_verified.get('authentication', None) or {}).get('x509', None) or {}).get('clientCAFile') }}"
+
+  - name: Fail when bundle trust flags did not stick
+    run_once: true
+    delegate_to: "{{ k8s_first_master }}"
+    ansible.builtin.fail:
+      msg: "Patched configurations were not persisted."
+    when: "k8s_cm_api_extra_v.get('client-ca-file') != k8s_bundle_crt or k8s_cm_api_extra_v.get('requestheader-client-ca-file') != k8s_fp_bundle_crt or k8s_cm_cm_extra_v.get('root-ca-file') != k8s_bundle_crt or k8s_cm_cm_extra_v.get('client-ca-file') != k8s_bundle_crt or k8s_cm_cm_extra_v.get('requestheader-client-ca-file') != k8s_fp_bundle_crt or k8s_kubelet_ca_verified != k8s_bundle_crt"
+
+- name: Staging complete, operator action required
+  hosts: master
+  gather_facts: false
+  any_errors_fatal: true
+  tasks:
+  - name: End instructions when no rotation needed
+    ansible.builtin.meta: end_play
+    when: not (k8s_ca_rotation_needed | default(false))
+
+  - name: Publish operator instructions
+    run_once: true
+    ansible.builtin.debug:
+      msg: >-
+        Staging complete: new CAs and dual-trust bundles (old+new) are
+        staged everywhere, and kubelet.conf now embeds the bundle on every
+        node, but nothing is restarted yet and nothing new is served.
+        Running kubelets keep the old trust until they restart. Before
+        running api-ca-activate.yml: (1) publish
+        /etc/kubernetes/pki/ca-bundle.crt and
+        /etc/kubernetes/pki/front-proxy-ca-bundle.crt from any master to all
+        external users (kubeconfigs, CI, aggregated APIService caBundles);
+        (2) run upgrade-cluster.yml to settle the staged ConfigMaps into
+        node-local configs (`kubeadm upgrade apply` on the first master,
+        `kubeadm upgrade node` everywhere else); it does NOT restart
+        kubelets, so it must run before the reboot; (3) run reboot-nodes.yml
+        cluster-wide: this is mandatory, because it restarts every kubelet
+        so the embedded bundle and updated kubelet config take effect, and
+        restarts every pod, including DaemonSets, into dual trust (drain
+        alone would leave DaemonSets untouched); (4) recreate any explicitly
+        mounted legacy serviceaccount token secrets, whose embedded CA bytes
+        a reboot cannot refresh; (5) wait days to weeks for adoption, then
+        run api-ca-activate.yml.
