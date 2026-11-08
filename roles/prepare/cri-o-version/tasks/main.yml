@@ -1,5 +1,5 @@
 ---
 - name: Set CRI-O version
   ansible.builtin.set_fact:
-    cri_o_package_name: "cri-o-1.35"
+    cri_o_package_name: "cri-o-1.36"
   run_once: yes
